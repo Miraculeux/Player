@@ -10,7 +10,6 @@ import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
-import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.core.view.GestureDetectorCompat;
@@ -346,8 +345,6 @@ public class CustomPlayerView extends PlayerView implements GestureDetector.OnGe
             mScaleFactorFit = getScaleFit();
             canScale = true;
         }
-        ImageButton buttonAspectRatio = findViewById(Integer.MAX_VALUE - 100);
-        buttonAspectRatio.setImageResource(R.drawable.ic_fit_screen_24dp);
         hideController();
         return true;
     }
@@ -360,8 +357,6 @@ public class CustomPlayerView extends PlayerView implements GestureDetector.OnGe
             setScale(1.f);
             setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
 
-            ImageButton buttonAspectRatio = findViewById(Integer.MAX_VALUE - 100);
-            buttonAspectRatio.setImageResource(R.drawable.ic_aspect_ratio_24dp);
         }
         if (PlayerActivity.player != null && !PlayerActivity.player.isPlaying()) {
             showController();

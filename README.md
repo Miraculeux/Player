@@ -46,10 +46,9 @@ AC-4 audio is supported on devices providing such system decoder (e.g. Samsung G
  * Vertical swipe to change brightness (left) / volume (right)
  * Pinch to zoom (Android 7+)
  * PiP (Picture in Picture) on Android 8+ (resizable on Android 11+)
- * Resize (fit/crop)
  * Volume boost
  * Auto frame rate matching on Android TV/boxes
- * Post-playback actions (delete file/skip to next)
+ * Previous/next video buttons (same directory, sorted by filename without regard to case; no wraparound)
  * Touch lock (long tap)
  * App shortcut for direct access to file chooser (Android 7.1+)
  * 3rd party equalizer / audio processing support (e.g. [Wavelet](https://github.com/Pittvandewitt/Wavelet))
@@ -96,7 +95,9 @@ Other links/channels: application thread on [XDA Developers](https://forum.xda-d
 
 To load external (non-embedded) subtitles, select the **Load subtitles** document icon next to the 📁 file open action in the bottom bar. The file browser opens in the current video's directory when available. This is separate from the subtitle track toggle.
 
-Long pressing the 📁 file open action still loads external subtitles. The first time you do that on a phone, you will be offered to select the root video folder to enable automatic loading of external subtitles.
+The 📁 file open action only opens videos; it no longer has a long-press subtitle action.
+
+The picture-in-picture, resize and delete buttons have been removed from the playback controls. Automatic picture-in-picture remains available in settings on supported devices.
 
 💡📺 Because of [limitations on Android TV](https://github.com/moneytoo/Player/issues/248#issuecomment-1019565204), Just Player is also able to open subtitle files from external file managers. You can open video file from your file manager, then return back and also  open subtitle file in Just Player. Subtitle will be available in the last selected video.
 
@@ -149,7 +150,7 @@ Alternatively, select the text url in the source app, choose _Share_ and find Ju
 
 ### How to zoom in to get rid of black bars?
 
-If your device has a touchscreen you can use the pinch-to-zoom gesture or just tap the Resize button for a Crop. **Android TV**: Long tap the Resize button to enter Zoom mode. Then use Up and Down keys for precise zoom.
+If your device has a touchscreen you can use the pinch-to-zoom gesture. The Resize button and its Android TV long-press zoom mode are no longer available.
 
 ### What to do if Bluetooth audio is not in sync with video?
 

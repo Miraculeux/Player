@@ -8,6 +8,8 @@
     <string name="onboarding_open_title">選擇要播放的影片</string>
     <string name="onboarding_open_description">輕觸即可開啟影片檔案，按住即可載入外掛字幕。</string>
     <string name="open_subtitles">載入字幕</string>
+    <string name="onboarding_video_open_description">選擇以開啟影片檔案。請使用獨立的載入字幕按鈕載入外掛字幕。</string>
+    <string name="request_video_directory_scope">請允許 %s 存取影片所在資料夾，以切換上一個／下一個影片並自動載入外掛字幕。</string>
     <string name="error_details">資訊</string>
     <string name="error_files_missing">檔案應用程式已停用或遺失</string>
     <string name="request_scope">如要自動載入字幕或啟用播放下個檔案功能，請授予 %s 存取您影片的頂層資料夾權限 (例如 Movies)。</string>

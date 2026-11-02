@@ -122,9 +122,10 @@
       android:gravity="center"
       android:padding="@dimen/exo_styled_controls_padding">
 
-    <ImageButton android:id="@+id/delete"
+    <ImageButton android:id="@+id/previous"
         style="@style/ExoStyledControls.Button.Center.Secondary"
-        android:src="@drawable/exo_styled_controls_delete"/>
+        android:contentDescription="@string/exo_controls_previous_description"
+        android:src="@drawable/exo_styled_controls_previous"/>
 
     <ImageButton android:id="@+id/exo_prev"
         style="@style/ExoStyledControls.Button.Center.Previous"/>
@@ -147,6 +148,7 @@
 
     <ImageButton android:id="@+id/next"
         style="@style/ExoStyledControls.Button.Center.Secondary"
+        android:contentDescription="@string/exo_controls_next_description"
         android:src="@drawable/exo_styled_controls_next"/>
 
   </LinearLayout>

@@ -7,6 +7,8 @@
     <string name="video_orientation_sensor">Auto-rotate</string>
     <string name="video_orientation_system">Device orientation</string>
     <string name="onboarding_open_title">Choose a video to play</string>
+    <string name="onboarding_video_open_description">Select to open a video file. Use the separate Load subtitles button for external subtitles.</string>
+    <string name="request_video_directory_scope">Allow %s to access the folder containing your videos to enable previous/next video navigation and automatic loading of external subtitles.</string>
     <string name="onboarding_open_description">Tap to open a video file. Long tap to load external subtitles.</string>
     <string name="open_subtitles">Load subtitles</string>
     <string name="error_details">Details</string>

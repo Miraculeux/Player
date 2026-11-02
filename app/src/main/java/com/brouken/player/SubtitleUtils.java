@@ -12,6 +12,7 @@ import androidx.media3.common.MimeTypes;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 class SubtitleUtils {
@@ -180,30 +181,27 @@ class SubtitleUtils {
         return null;
     }
 
-    public static DocumentFile findNext(DocumentFile video) {
-        DocumentFile dir = video.getParentFile();
-        return findNext(video, dir);
-    }
-
-    public static DocumentFile findNext(DocumentFile video, DocumentFile dir) {
+    public static DocumentFile findAdjacent(DocumentFile video, DocumentFile dir, boolean next) {
         if (dir == null) {
             return null;
         }
 
         try {
             DocumentFile[] list = dir.listFiles();
-            Arrays.sort(list, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+            Arrays.sort(list, Comparator.comparing(DocumentFile::getName,
+                    Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
 
             final String videoName = video.getName();
-            boolean matchFound = false;
 
-            for (DocumentFile file : list) {
-                if (file.getName().equals(videoName)) {
-                    matchFound = true;
-                } else if (matchFound) {
-                    if (isVideoFile(file)) {
-                        return file;
+            for (int i = 0; i < list.length; i++) {
+                if (videoName.equals(list[i].getName())) {
+                    final int step = next ? 1 : -1;
+                    for (int j = i + step; j >= 0 && j < list.length; j += step) {
+                        if (isVideoFile(list[j])) {
+                            return list[j];
+                        }
                     }
+                    break;
                 }
             }
         } catch (NullPointerException e) {
@@ -214,7 +212,8 @@ class SubtitleUtils {
     }
 
     public static boolean isVideoFile(DocumentFile file) {
-        return file.isFile() && file.getType().startsWith("video/");
+        final String type = file.getType();
+        return file.isFile() && type != null && type.startsWith("video/");
     }
 
     public static boolean isSubtitleFile(DocumentFile file) {

@@ -15,12 +15,14 @@ import android.app.RemoteAction;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
+import android.content.ContentUris;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.UriPermission;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
@@ -33,6 +35,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -136,9 +139,6 @@ public class PlayerActivity extends Activity {
     public static Snackbar snackbar;
     private ExoPlaybackException errorToShow;
     public static int boostLevel = 0;
-    private boolean isScaling = false;
-    private boolean isScaleStarting = false;
-    private float scaleFactor = 1.0f;
 
     private static final int REQUEST_CHOOSER_VIDEO = 1;
     private static final int REQUEST_CHOOSER_SUBTITLE = 2;
@@ -158,8 +158,6 @@ public class PlayerActivity extends Activity {
     private CoordinatorLayout coordinatorLayout;
     private TextView titleView;
     private ImageButton buttonOpen;
-    private ImageButton buttonPiP;
-    private ImageButton buttonAspectRatio;
     private ImageButton buttonRotation;
     private ImageButton exoSettings;
     private ImageButton exoPlayPause;
@@ -178,10 +176,11 @@ public class PlayerActivity extends Activity {
     public boolean frameRendered;
     private boolean alive;
     public static boolean focusPlay = false;
+    private Uri previousUri;
     private Uri nextUri;
     private static boolean isTvBox;
     public static boolean locked = false;
-    private Thread nextUriThread;
+    private Thread adjacentUrisThread;
     public Thread frameRateSwitchThread;
 
     public static boolean restoreControllerTimeout = false;
@@ -383,15 +382,6 @@ public class PlayerActivity extends Activity {
 
         buttonOpen.setOnClickListener(view -> openFile(mPrefs.mediaUri));
 
-        buttonOpen.setOnLongClickListener(view -> {
-            if (!isTvBox && mPrefs.askScope) {
-                askForScope(true, false);
-            } else {
-                loadSubtitleFile(mPrefs.mediaUri);
-            }
-            return true;
-        });
-
         final ImageButton buttonLoadSubtitles = new ImageButton(this, null, 0, R.style.ExoStyledControls_Button_Bottom);
         buttonLoadSubtitles.setImageResource(R.drawable.ic_subtitle_file_24dp);
         buttonLoadSubtitles.setId(View.generateViewId());
@@ -402,41 +392,9 @@ public class PlayerActivity extends Activity {
             // TODO: Android 12 improvements:
             // https://developer.android.com/about/versions/12/features/pip-improvements
             mPictureInPictureParamsBuilder = new PictureInPictureParams.Builder();
-            boolean success = updatePictureInPictureActions(R.drawable.ic_play_arrow_24dp, R.string.exo_controls_play_description, CONTROL_TYPE_PLAY, REQUEST_PLAY);
-
-            if (success) {
-                buttonPiP = new ImageButton(this, null, 0, R.style.ExoStyledControls_Button_Bottom);
-                buttonPiP.setContentDescription(getString(R.string.button_pip));
-                buttonPiP.setImageResource(R.drawable.ic_picture_in_picture_alt_24dp);
-
-                buttonPiP.setOnClickListener(view -> enterPiP());
-            }
+            updatePictureInPictureActions(R.drawable.ic_play_arrow_24dp, R.string.exo_controls_play_description, CONTROL_TYPE_PLAY, REQUEST_PLAY);
         }
 
-        buttonAspectRatio = new ImageButton(this, null, 0, R.style.ExoStyledControls_Button_Bottom);
-        buttonAspectRatio.setId(Integer.MAX_VALUE - 100);
-        buttonAspectRatio.setContentDescription(getString(R.string.button_crop));
-        updatebuttonAspectRatioIcon();
-        buttonAspectRatio.setOnClickListener(view -> {
-            playerView.setScale(1.f);
-            if (playerView.getResizeMode() == AspectRatioFrameLayout.RESIZE_MODE_FIT) {
-                playerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_ZOOM);
-                Utils.showText(playerView, getString(R.string.video_resize_crop));
-            } else {
-                // Default mode
-                playerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
-                Utils.showText(playerView, getString(R.string.video_resize_fit));
-            }
-            updatebuttonAspectRatioIcon();
-            resetHideCallbacks();
-        });
-        if (isTvBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            buttonAspectRatio.setOnLongClickListener(v -> {
-                scaleStart();
-                updatebuttonAspectRatioIcon();
-                return true;
-            });
-        }
         buttonRotation = new ImageButton(this, null, 0, R.style.ExoStyledControls_Button_Bottom);
         buttonRotation.setContentDescription(getString(R.string.button_rotate));
         updateButtonRotation();
@@ -570,15 +528,8 @@ public class PlayerActivity extends Activity {
             e.printStackTrace();
         }
 
-        findViewById(R.id.delete).setOnClickListener(view -> askDeleteMedia());
-
-        findViewById(R.id.next).setOnClickListener(view -> {
-            if (!isTvBox && mPrefs.askScope) {
-                askForScope(false, true);
-            } else {
-                skipToNext();
-            }
-        });
+        findViewById(R.id.previous).setOnClickListener(view -> skipToAdjacent(false));
+        findViewById(R.id.next).setOnClickListener(view -> skipToAdjacent(true));
 
         exoPlayPause.setOnClickListener(view -> dispatchPlayPause());
 
@@ -606,7 +557,6 @@ public class PlayerActivity extends Activity {
         //exoBasicControls.setVisibility(View.GONE);
 
         exoSettings.setOnLongClickListener(view -> {
-            //askForScope(false, false);
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivityForResult(intent, REQUEST_SETTINGS);
             return true;
@@ -626,10 +576,6 @@ public class PlayerActivity extends Activity {
         controls.addView(buttonOpen);
         controls.addView(buttonLoadSubtitles);
         controls.addView(exoSubtitle);
-        controls.addView(buttonAspectRatio);
-        if (Utils.isPiPSupported(this) && buttonPiP != null) {
-            controls.addView(buttonPiP);
-        }
         if (mPrefs.repeatToggle) {
             controls.addView(exoRepeat);
         }
@@ -669,7 +615,7 @@ public class PlayerActivity extends Activity {
                 if (controllerVisible && playerView.isControllerFullyVisible()) {
                     if (mPrefs.firstRun) {
                         TapTargetView.showFor(PlayerActivity.this,
-                                TapTarget.forView(buttonOpen, getString(R.string.onboarding_open_title), getString(R.string.onboarding_open_description))
+                                TapTarget.forView(buttonOpen, getString(R.string.onboarding_open_title), getString(R.string.onboarding_video_open_description))
                                         .outerCircleColor(R.color.green)
                                         .targetCircleColor(R.color.white)
                                         .titleTextSize(22)
@@ -960,33 +906,6 @@ public class PlayerActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (isScaling) {
-            final int keyCode = event.getKeyCode();
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                switch (keyCode) {
-                    case KeyEvent.KEYCODE_DPAD_UP:
-                        scale(true);
-                        break;
-                    case KeyEvent.KEYCODE_DPAD_DOWN:
-                        scale(false);
-                        break;
-                }
-            } else if (event.getAction() == KeyEvent.ACTION_UP) {
-                switch (keyCode) {
-                    case KeyEvent.KEYCODE_DPAD_UP:
-                    case KeyEvent.KEYCODE_DPAD_DOWN:
-                        break;
-                    default:
-                        if (isScaleStarting) {
-                            isScaleStarting = false;
-                        } else {
-                            scaleEnd();
-                        }
-                }
-            }
-            return true;
-        }
-
         if (isTvBox && !controllerVisibleFully) {
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
                 onKeyDown(event.getKeyCode(), event);
@@ -1298,8 +1217,6 @@ public class PlayerActivity extends Activity {
             } else {
                 playerView.setScale(1.f);
             }
-            updatebuttonAspectRatioIcon();
-
             MediaItem.Builder mediaItemBuilder = new MediaItem.Builder()
                     .setUri(mPrefs.mediaUri)
                     .setMimeType(mPrefs.mediaType);
@@ -1355,17 +1272,30 @@ public class PlayerActivity extends Activity {
             ((DoubleTapPlayerView)playerView).setDoubleTapEnabled(true);
 
             if (!apiAccess) {
-                if (nextUriThread != null) {
-                    nextUriThread.interrupt();
+                if (adjacentUrisThread != null) {
+                    adjacentUrisThread.interrupt();
                 }
+                previousUri = null;
                 nextUri = null;
-                nextUriThread = new Thread(() -> {
-                    Uri uri = findNext();
-                    if (!Thread.currentThread().isInterrupted()) {
-                        nextUri = uri;
+                updateButtons(true);
+                final Uri mediaUri = mPrefs.mediaUri;
+                final Uri scopeUri = mPrefs.scopeUri;
+                adjacentUrisThread = new Thread(() -> {
+                    Thread scanThread = Thread.currentThread();
+                    Uri previous = findAdjacent(mediaUri, scopeUri, false);
+                    Uri next = findAdjacent(mediaUri, scopeUri, true);
+                    if (!scanThread.isInterrupted()) {
+                        runOnUiThread(() -> {
+                            if (adjacentUrisThread == scanThread && alive && player != null
+                                    && mediaUri.equals(mPrefs.mediaUri) && !apiAccess) {
+                                previousUri = previous;
+                                nextUri = next;
+                                updateButtons(true);
+                            }
+                        });
                     }
                 });
-                nextUriThread.start();
+                adjacentUrisThread.start();
             }
 
             player.setHandleAudioBecomingNoisy(!isTvBox);
@@ -1412,6 +1342,12 @@ public class PlayerActivity extends Activity {
         if (save) {
             savePlayer();
         }
+        if (adjacentUrisThread != null) {
+            adjacentUrisThread.interrupt();
+            adjacentUrisThread = null;
+        }
+        previousUri = null;
+        nextUri = null;
 
         if (player != null) {
             notifyAudioSessionUpdate(false);
@@ -1481,16 +1417,7 @@ public class PlayerActivity extends Activity {
         @SuppressLint("SourceLockedOrientationActivity")
         @Override
         public void onPlaybackStateChanged(int state) {
-            boolean isNearEnd = false;
             final long duration = player.getDuration();
-            if (duration != C.TIME_UNSET) {
-                final long position = player.getCurrentPosition();
-                if (position + 4000 >= duration) {
-                    isNearEnd = true;
-                }
-            }
-            setEndControlsVisible(haveMedia && (state == Player.STATE_ENDED || isNearEnd));
-
             if (state == Player.STATE_READY) {
                 frameRendered = true;
 
@@ -2040,61 +1967,92 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    Uri findNext() {
+    private Uri findAdjacent(Uri mediaUri, Uri scopeUri, boolean next) {
+        if (mediaUri != null && ContentResolver.SCHEME_CONTENT.equals(mediaUri.getScheme())
+                && MediaStore.AUTHORITY.equals(mediaUri.getAuthority())) {
+            return findAdjacentMediaStoreVideo(mediaUri, next);
+        }
         // TODO: Unify with searchSubtitles()
-        if (mPrefs.scopeUri != null || isTvBox) {
+        if (mediaUri != null && (scopeUri != null || ContentResolver.SCHEME_FILE.equals(mediaUri.getScheme()))) {
             DocumentFile video = null;
-            File videoRaw = null;
+            DocumentFile directory = null;
 
-            if (!isTvBox && mPrefs.scopeUri != null) {
-                if ("com.android.externalstorage.documents".equals(mPrefs.mediaUri.getHost())) {
+            if (ContentResolver.SCHEME_FILE.equals(mediaUri.getScheme())) {
+                File videoRaw = new File(mediaUri.getSchemeSpecificPart());
+                File parent = videoRaw.getParentFile();
+                if (parent != null) {
+                    video = DocumentFile.fromFile(videoRaw);
+                    directory = DocumentFile.fromFile(parent);
+                }
+            } else if (scopeUri != null) {
+                if ("com.android.externalstorage.documents".equals(mediaUri.getHost())) {
                     // Fast search based on path in uri
-                    video = SubtitleUtils.findUriInScope(this, mPrefs.scopeUri, mPrefs.mediaUri);
+                    video = SubtitleUtils.findUriInScope(this, scopeUri, mediaUri);
                 } else {
                     // Slow search based on matching metadata, no path in uri
                     // Provider "com.android.providers.media.documents" when using "Videos" tab in file picker
-                    DocumentFile fileScope = DocumentFile.fromTreeUri(this, mPrefs.scopeUri);
-                    DocumentFile fileMedia = DocumentFile.fromSingleUri(this, mPrefs.mediaUri);
+                    DocumentFile fileScope = DocumentFile.fromTreeUri(this, scopeUri);
+                    DocumentFile fileMedia = DocumentFile.fromSingleUri(this, mediaUri);
                     video = SubtitleUtils.findDocInScope(fileScope, fileMedia);
                 }
-            } else if (isTvBox) {
-                videoRaw = new File(mPrefs.mediaUri.getSchemeSpecificPart());
-                video = DocumentFile.fromFile(videoRaw);
+                if (video != null) {
+                    directory = video.getParentFile();
+                }
             }
 
             if (video != null) {
-                DocumentFile next;
-                if (!isTvBox) {
-                    next = SubtitleUtils.findNext(video);
-                } else {
-                    File parentRaw = videoRaw.getParentFile();
-                    DocumentFile dir = DocumentFile.fromFile(parentRaw);
-                    next = SubtitleUtils.findNext(video, dir);
-                }
-                if (next != null) {
-                    return next.getUri();
+                DocumentFile adjacent = SubtitleUtils.findAdjacent(video, directory, next);
+                if (adjacent != null) {
+                    return adjacent.getUri();
                 }
             }
         }
         return null;
     }
 
-    void askForScope(boolean loadSubtitlesOnCancel, boolean skipToNextOnCancel) {
+    private Uri findAdjacentMediaStoreVideo(Uri mediaUri, boolean next) {
+        try (Cursor current = getContentResolver().query(mediaUri,
+                new String[]{MediaStore.MediaColumns._ID, MediaStore.MediaColumns.BUCKET_ID},
+                null, null, null)) {
+            if (current == null || !current.moveToFirst() || current.isNull(1)) {
+                return null;
+            }
+            final long currentId = current.getLong(0);
+            final Uri collection = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    ? MediaStore.Video.Media.getContentUri(MediaStore.getVolumeName(mediaUri))
+                    : MediaStore.Video.Media.EXTERNAL_CONTENT_URI;
+            try (Cursor files = getContentResolver().query(collection,
+                    new String[]{MediaStore.MediaColumns._ID},
+                    MediaStore.MediaColumns.BUCKET_ID + "=?", new String[]{current.getString(1)},
+                    MediaStore.MediaColumns.DISPLAY_NAME + " COLLATE NOCASE ASC, " + MediaStore.MediaColumns._ID + " ASC")) {
+                if (files != null) {
+                    while (files.moveToNext()) {
+                        if (files.getLong(0) == currentId) {
+                            if (next ? files.moveToNext() : files.moveToPrevious()) {
+                                return ContentUris.withAppendedId(collection, files.getLong(0));
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        } catch (IllegalArgumentException | SecurityException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private void askForScope(boolean next) {
         final AlertDialog.Builder builder = new AlertDialog.Builder(PlayerActivity.this);
-        builder.setMessage(String.format(getString(R.string.request_scope), getString(R.string.app_name)));
+        builder.setMessage(getString(R.string.request_video_directory_scope, getString(R.string.app_name)));
         builder.setPositiveButton(android.R.string.ok, (dialogInterface, i) -> requestDirectoryAccess()
         );
         builder.setNegativeButton(android.R.string.cancel, (dialog, which) -> {
             mPrefs.markScopeAsked();
-            if (loadSubtitlesOnCancel) {
-                loadSubtitleFile(mPrefs.mediaUri);
-            }
-            if (skipToNextOnCancel) {
-                nextUri = findNext();
-                if (nextUri != null) {
-                    skipToNext();
-                }
-            }
+            previousUri = findAdjacent(mPrefs.mediaUri, mPrefs.scopeUri, false);
+            nextUri = findAdjacent(mPrefs.mediaUri, mPrefs.scopeUri, true);
+            updateButtons(player != null && haveMedia);
+            skipToAdjacent(next);
         });
         final AlertDialog dialog = builder.create();
         dialog.show();
@@ -2174,47 +2132,6 @@ public class PlayerActivity extends Activity {
         enterPictureInPictureMode(((PictureInPictureParams.Builder)mPictureInPictureParamsBuilder).build());
     }
 
-    void setEndControlsVisible(boolean visible) {
-        final int deleteVisible = (visible && haveMedia && Utils.isDeletable(this, mPrefs.mediaUri)) ? View.VISIBLE : View.INVISIBLE;
-        final int nextVisible = (visible && haveMedia && (nextUri != null || (mPrefs.askScope && !isTvBox))) ? View.VISIBLE : View.INVISIBLE;
-        findViewById(R.id.delete).setVisibility(deleteVisible);
-        findViewById(R.id.next).setVisibility(nextVisible);
-    }
-
-    void askDeleteMedia() {
-        final AlertDialog.Builder builder = new AlertDialog.Builder(PlayerActivity.this);
-        builder.setMessage(getString(R.string.delete_query));
-        builder.setPositiveButton(R.string.delete_confirmation, (dialogInterface, i) -> {
-            releasePlayer();
-            deleteMedia();
-            if (nextUri == null) {
-                haveMedia = false;
-                setEndControlsVisible(false);
-                playerView.setControllerShowTimeoutMs(-1);
-            } else {
-                skipToNext();
-            }
-        });
-        builder.setNegativeButton(android.R.string.cancel, (dialog, which) -> {});
-        final AlertDialog dialog = builder.create();
-        dialog.show();
-    }
-
-    void deleteMedia() {
-        try {
-            if (ContentResolver.SCHEME_CONTENT.equals(mPrefs.mediaUri.getScheme())) {
-                DocumentsContract.deleteDocument(getContentResolver(), mPrefs.mediaUri);
-            } else if (ContentResolver.SCHEME_FILE.equals(mPrefs.mediaUri.getScheme())) {
-                final File file = new File(mPrefs.mediaUri.getSchemeSpecificPart());
-                if (file.canWrite()) {
-                    file.delete();
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private void dispatchPlayPause() {
         if (player == null)
             return;
@@ -2228,10 +2145,15 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    void skipToNext() {
-        if (nextUri != null) {
+    private void skipToAdjacent(boolean next) {
+        Uri target = next ? nextUri : previousUri;
+        if (target == null && needsDirectoryAccess()) {
+            askForScope(next);
+            return;
+        }
+        if (target != null) {
             releasePlayer();
-            mPrefs.updateMedia(this, nextUri, null);
+            mPrefs.updateMedia(this, target, null);
             searchSubtitles();
             initializePlayer();
         }
@@ -2253,10 +2175,12 @@ public class PlayerActivity extends Activity {
     }
 
     void updateButtons(final boolean enable) {
-        if (buttonPiP != null) {
-            Utils.setButtonEnabled(this, buttonPiP, enable);
-        }
-        Utils.setButtonEnabled(this, buttonAspectRatio, enable);
+        final boolean navigationVisible = enable && haveMedia && !apiAccess;
+        final boolean canRequestScope = navigationVisible && needsDirectoryAccess();
+        findViewById(R.id.previous).setVisibility(navigationVisible ? View.VISIBLE : View.INVISIBLE);
+        findViewById(R.id.next).setVisibility(navigationVisible ? View.VISIBLE : View.INVISIBLE);
+        Utils.setButtonEnabled(this, findViewById(R.id.previous), navigationVisible && (previousUri != null || canRequestScope));
+        Utils.setButtonEnabled(this, findViewById(R.id.next), navigationVisible && (nextUri != null || canRequestScope));
         if (isTvBox) {
             Utils.setButtonEnabled(this, exoSettings, true);
         } else {
@@ -2264,49 +2188,10 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    private void scaleStart() {
-        isScaling = true;
-        if (playerView.getResizeMode() != AspectRatioFrameLayout.RESIZE_MODE_ZOOM) {
-            playerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_ZOOM);
-        }
-        scaleFactor = playerView.getVideoSurfaceView().getScaleX();
-        playerView.removeCallbacks(playerView.textClearRunnable);
-        playerView.clearIcon();
-        playerView.setCustomErrorMessage((int)(scaleFactor * 100) + "%");
-        playerView.hideController();
-        isScaleStarting = true;
-    }
-
-    private void scale(boolean up) {
-        if (up) {
-            scaleFactor += 0.01;
-        } else {
-            scaleFactor -= 0.01;
-        }
-        scaleFactor = Utils.normalizeScaleFactor(scaleFactor, playerView.getScaleFit());
-        playerView.setScale(scaleFactor);
-        playerView.setCustomErrorMessage((int)(scaleFactor * 100) + "%");
-    }
-
-    private void scaleEnd() {
-        isScaling = false;
-        playerView.postDelayed(playerView.textClearRunnable, 200);
-        if (player != null && !player.isPlaying()) {
-            playerView.showController();
-        }
-        if (Math.abs(playerView.getScaleFit() - scaleFactor) < 0.01 / 2) {
-            playerView.setScale(1.f);
-            playerView.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
-        }
-        updatebuttonAspectRatioIcon();
-    }
-
-    private void updatebuttonAspectRatioIcon() {
-        if (playerView.getResizeMode() == AspectRatioFrameLayout.RESIZE_MODE_ZOOM) {
-            buttonAspectRatio.setImageResource(R.drawable.ic_fit_screen_24dp);
-        } else {
-            buttonAspectRatio.setImageResource(R.drawable.ic_aspect_ratio_24dp);
-        }
+    private boolean needsDirectoryAccess() {
+        return !isTvBox && mPrefs.askScope && mPrefs.scopeUri == null && mPrefs.mediaUri != null
+                && ContentResolver.SCHEME_CONTENT.equals(mPrefs.mediaUri.getScheme())
+                && !MediaStore.AUTHORITY.equals(mPrefs.mediaUri.getAuthority());
     }
 
     private void updateButtonRotation() {
