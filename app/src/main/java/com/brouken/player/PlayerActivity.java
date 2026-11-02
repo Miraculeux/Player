@@ -71,6 +71,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -164,6 +165,9 @@ public class PlayerActivity extends Activity {
     private ProgressBar loadingProgressBar;
     private PlayerControlView controlView;
     private CustomDefaultTimeBar timeBar;
+    private List<VideoChapter> chapters = Collections.emptyList();
+    private List<VideoChapter> metadataChapters = Collections.emptyList();
+    private AlertDialog chapterDialog;
 
     private boolean restoreOrientationLock;
     private boolean restorePlayState;
@@ -445,6 +449,18 @@ public class PlayerActivity extends Activity {
         }
 
         controlView = playerView.findViewById(R.id.exo_controller);
+        controlView.setProgressUpdateListener((position, bufferedPosition) -> updateChapterButtons());
+        findViewById(R.id.chapter_previous).setOnClickListener(view -> {
+            if (player != null) {
+                seekToChapter(VideoChapter.previousIndex(chapters, player.getCurrentPosition()));
+            }
+        });
+        findViewById(R.id.chapters).setOnClickListener(view -> showChapters());
+        findViewById(R.id.chapter_next).setOnClickListener(view -> {
+            if (player != null) {
+                seekToChapter(VideoChapter.nextIndex(chapters, player.getCurrentPosition()));
+            }
+        });
         controlView.setOnApplyWindowInsetsListener((view, windowInsets) -> {
             if (windowInsets != null) {
                 if (Build.VERSION.SDK_INT >= 31) {
@@ -509,6 +525,10 @@ public class PlayerActivity extends Activity {
 
                 Utils.setViewParams(findViewById(R.id.exo_progress), windowInsets.getSystemWindowInsetLeft(), 0, windowInsets.getSystemWindowInsetRight(), 0,
                         0, 0, 0, getResources().getDimensionPixelSize(R.dimen.exo_styled_progress_margin_bottom) + progressBarMarginBottom);
+
+                Utils.setViewMargins(findViewById(R.id.chapter_controls), windowInsets.getSystemWindowInsetLeft(), 0,
+                        windowInsets.getSystemWindowInsetRight(),
+                        getResources().getDimensionPixelSize(R.dimen.chapter_controls_margin_bottom) + progressBarMarginBottom);
 
                 Utils.setViewMargins(findViewById(R.id.exo_error_message), 0, windowInsets.getSystemWindowInsetTop() / 2, 0, getResources().getDimensionPixelSize(R.dimen.exo_error_message_margin_bottom) + windowInsets.getSystemWindowInsetBottom() / 2);
 
@@ -1112,6 +1132,7 @@ public class PlayerActivity extends Activity {
             player.release();
             player = null;
         }
+        clearChapters();
 
         trackSelector = new DefaultTrackSelector(this);
         trackSelector.setParameters(trackSelector.buildUponParameters()
@@ -1366,10 +1387,34 @@ public class PlayerActivity extends Activity {
             player = null;
         }
         titleView.setVisibility(View.GONE);
+        clearChapters();
         updateButtons(false);
     }
 
     private class PlayerListener implements Player.Listener {
+        @Override
+        public void onEvents(Player updatedPlayer, Player.Events events) {
+            if (updatedPlayer != player) {
+                return;
+            }
+            if (events.contains(Player.EVENT_TRACKS_CHANGED) || events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+                updateChapters();
+            }
+            updateChapterButtons();
+        }
+
+        @Override
+        public void onMetadata(Metadata metadata) {
+            if (player != null) {
+                List<VideoChapter> found = VideoChapter.fromMetadata(metadata);
+                if (!found.isEmpty()) {
+                    found.addAll(metadataChapters);
+                    metadataChapters = VideoChapter.normalize(found, player.getDuration());
+                    updateChapters();
+                }
+            }
+        }
+
         @Override
         public void onAudioSessionIdChanged(int audioSessionId) {
             try {
@@ -2174,6 +2219,7 @@ public class PlayerActivity extends Activity {
     }
 
     void updateButtons(final boolean enable) {
+        updateChapterButtons();
         final boolean navigationVisible = enable && haveMedia && !apiAccess;
         final boolean canRequestScope = navigationVisible && needsDirectoryAccess();
         findViewById(R.id.previous).setVisibility(navigationVisible ? View.VISIBLE : View.INVISIBLE);
@@ -2191,6 +2237,81 @@ public class PlayerActivity extends Activity {
         return !isTvBox && mPrefs.askScope && mPrefs.scopeUri == null && mPrefs.mediaUri != null
                 && ContentResolver.SCHEME_CONTENT.equals(mPrefs.mediaUri.getScheme())
                 && !MediaStore.AUTHORITY.equals(mPrefs.mediaUri.getAuthority());
+    }
+
+    private void updateChapters() {
+        if (player == null) {
+            return;
+        }
+        List<VideoChapter> found = new ArrayList<>(metadataChapters);
+        for (Tracks.Group group : player.getCurrentTracks().getGroups()) {
+            for (int i = 0; i < group.length; i++) {
+                found.addAll(VideoChapter.fromMetadata(group.getTrackFormat(i).metadata));
+            }
+        }
+        List<VideoChapter> updated = VideoChapter.normalize(found, player.getDuration());
+        if (!chapters.equals(updated)) {
+            if (chapterDialog != null) {
+                chapterDialog.dismiss();
+            }
+            chapters = updated;
+        }
+        updateChapterButtons();
+    }
+
+    private void clearChapters() {
+        chapters = Collections.emptyList();
+        metadataChapters = Collections.emptyList();
+        if (chapterDialog != null) {
+            chapterDialog.dismiss();
+        }
+        updateChapterButtons();
+    }
+
+    private void updateChapterButtons() {
+        boolean enabled = haveMedia && player != null && player.isCurrentMediaItemSeekable() && !chapters.isEmpty();
+        long position = player == null ? 0 : player.getCurrentPosition();
+        Utils.setButtonEnabled(this, findViewById(R.id.chapters), enabled);
+        Utils.setButtonEnabled(this, findViewById(R.id.chapter_previous),
+                enabled && VideoChapter.previousIndex(chapters, position) >= 0);
+        Utils.setButtonEnabled(this, findViewById(R.id.chapter_next),
+                enabled && VideoChapter.nextIndex(chapters, position) >= 0);
+    }
+
+    private void showChapters() {
+        if (player == null || !player.isCurrentMediaItemSeekable() || chapters.isEmpty()) {
+            return;
+        }
+        String[] labels = new String[chapters.size()];
+        for (int i = 0; i < chapters.size(); i++) {
+            VideoChapter chapter = chapters.get(i);
+            String title = chapter.title == null ? getString(R.string.chapter_number, i + 1) : chapter.title;
+            labels[i] = Utils.formatMilis(chapter.startTimeMs) + "  " + title;
+        }
+        playerView.setControllerShowTimeoutMs(-1);
+        chapterDialog = new AlertDialog.Builder(this, R.style.MediaStoreChooserDialog)
+                .setTitle(R.string.chapters)
+                .setSingleChoiceItems(labels, VideoChapter.currentIndex(chapters, player.getCurrentPosition()),
+                        (dialog, index) -> {
+                            seekToChapter(index);
+                            dialog.dismiss();
+                        })
+                .setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.dismiss())
+                .create();
+        chapterDialog.setOnDismissListener(dialog -> {
+            chapterDialog = null;
+            resetHideCallbacks();
+        });
+        chapterDialog.show();
+    }
+
+    private void seekToChapter(int index) {
+        if (player != null && player.isCurrentMediaItemSeekable() && index >= 0 && index < chapters.size()) {
+            player.seekTo(chapters.get(index).startTimeMs);
+            playerView.showController();
+            resetHideCallbacks();
+            updateChapterButtons();
+        }
     }
 
     private void updateButtonRotation() {

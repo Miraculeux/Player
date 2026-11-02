@@ -8,6 +8,10 @@
     <string name="onboarding_open_title">選擇要播放的影片</string>
     <string name="onboarding_open_description">輕觸即可開啟影片檔案，按住即可載入外掛字幕。</string>
     <string name="open_subtitles">載入字幕</string>
+    <string name="chapters">章節</string>
+    <string name="chapter_previous">上一章</string>
+    <string name="chapter_next">下一章</string>
+    <string name="chapter_number">第 %1$d 章</string>
     <string name="onboarding_video_open_description">選擇以開啟影片檔案。請使用獨立的載入字幕按鈕載入外掛字幕。</string>
     <string name="request_video_directory_scope">請允許 %s 存取影片所在資料夾，以切換上一個／下一個影片並自動載入外掛字幕。</string>
     <string name="error_details">資訊</string>

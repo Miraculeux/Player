@@ -50,6 +50,7 @@ AC-4 audio is supported on devices providing such system decoder (e.g. Samsung G
  * Volume boost
  * Auto frame rate matching on Android TV/boxes
  * Previous/next video buttons (same directory, sorted by filename without regard to case; no wraparound)
+ * Chapter list and previous/next chapter buttons above the progress bar, using embedded chapter metadata exposed by Media3 (including supported MP4/MKV chapters). The list shows chapter titles and start times. Previous always jumps to the preceding chapter, without restarting the current chapter; navigation does not wrap at either end. Controls are disabled when no chapters are available or the video is not seekable.
  * Touch lock (long tap)
  * App shortcut for direct access to file chooser (Android 7.1+)
  * 3rd party equalizer / audio processing support (e.g. [Wavelet](https://github.com/Pittvandewitt/Wavelet))
