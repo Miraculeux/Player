@@ -74,6 +74,10 @@ final class VideoChapter {
         return next < chapters.size() ? next : -1;
     }
 
+    static int navigationIndex(List<VideoChapter> chapters, long positionMs, boolean next, boolean seekable) {
+        return seekable ? (next ? nextIndex(chapters, positionMs) : previousIndex(chapters, positionMs)) : -1;
+    }
+
     @Override
     public boolean equals(Object other) {
         if (!(other instanceof VideoChapter)) {

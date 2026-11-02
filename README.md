@@ -49,8 +49,9 @@ AC-4 audio is supported on devices providing such system decoder (e.g. Samsung G
  * PiP (Picture in Picture) on Android 8+ (resizable on Android 11+)
  * Volume boost
  * Auto frame rate matching on Android TV/boxes
- * Previous/next video buttons (same directory, sorted by filename without regard to case; no wraparound)
- * Chapter list and previous/next chapter buttons above the progress bar, using embedded chapter metadata exposed by Media3 (including supported MP4/MKV chapters). The list shows chapter titles and start times. Previous always jumps to the preceding chapter, without restarting the current chapter; navigation does not wrap at either end. Controls are disabled when no chapters are available or the video is not seekable.
+ * Unified chapter/file navigation: previous/next jumps between chapters, switching to the previous video from the first chapter or the next video from the last chapter. Without usable chapters, these buttons switch files directly. Each file starts from the beginning. Videos are ordered by filename in the same directory without regard to case; there is no wraparound.
+ * A single scrollable toolbar for opening videos, loading external subtitles, and chapter navigation. The subtitle browser starts in the current video's directory when it can be resolved (including local MediaStore and external-storage document URIs). Selecting a subtitle explicitly enables it, preserves the playback position, and retains the playing/paused state.
+ * The chapter list uses embedded metadata exposed by Media3 (including supported MP4/MKV chapters) and shows titles and start times. Previous always jumps to the preceding chapter, without restarting the current chapter. The chapter list is disabled when chapters are unavailable or the video is not seekable; navigation buttons remain available when an adjacent file can be opened.
  * Touch lock (long tap)
  * App shortcut for direct access to file chooser (Android 7.1+)
  * 3rd party equalizer / audio processing support (e.g. [Wavelet](https://github.com/Pittvandewitt/Wavelet))

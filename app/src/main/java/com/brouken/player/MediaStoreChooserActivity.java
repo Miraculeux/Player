@@ -17,6 +17,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -80,18 +81,29 @@ public class MediaStoreChooserActivity extends Activity {
         if (!initialDirectoryResolved) {
             initialDirectoryResolved = true;
             Uri initialUri = getIntent().getData();
-            if (bucketId == null && subtitles && initialUri != null
-                    && ContentResolver.SCHEME_CONTENT.equals(initialUri.getScheme())
-                    && MediaStore.AUTHORITY.equals(initialUri.getAuthority())) {
-                try (Cursor cursor = getContentResolver().query(initialUri,
-                        new String[]{MediaStore.MediaColumns.BUCKET_ID, MediaStore.MediaColumns.BUCKET_DISPLAY_NAME},
-                        null, null, null)) {
-                    if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) {
-                        bucketId = cursor.getInt(0);
-                        title = cursor.getString(1);
+            if (bucketId == null && subtitles && initialUri != null) {
+                Uri collection = initialUri;
+                String selection = null;
+                String[] selectionArgs = null;
+                boolean mediaStoreUri = ContentResolver.SCHEME_CONTENT.equals(initialUri.getScheme())
+                        && MediaStore.AUTHORITY.equals(initialUri.getAuthority());
+                File mediaFile = mediaStoreUri ? null : Utils.getMediaFile(this, initialUri);
+                if (!mediaStoreUri && mediaFile != null) {
+                    collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL);
+                    selection = MediaStore.MediaColumns.DATA + "=?";
+                    selectionArgs = new String[]{mediaFile.getAbsolutePath()};
+                }
+                if (mediaStoreUri || mediaFile != null) {
+                    try (Cursor cursor = getContentResolver().query(collection,
+                            new String[]{MediaStore.MediaColumns.BUCKET_ID, MediaStore.MediaColumns.BUCKET_DISPLAY_NAME},
+                            selection, selectionArgs, null)) {
+                        if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) {
+                            bucketId = cursor.getInt(0);
+                            title = cursor.getString(1);
+                        }
+                    } catch (IllegalArgumentException | SecurityException e) {
+                        e.printStackTrace();
                     }
-                } catch (IllegalArgumentException | SecurityException e) {
-                    e.printStackTrace();
                 }
             }
         }

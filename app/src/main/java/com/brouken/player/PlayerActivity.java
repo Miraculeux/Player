@@ -171,6 +171,7 @@ public class PlayerActivity extends Activity {
 
     private boolean restoreOrientationLock;
     private boolean restorePlayState;
+    private Boolean subtitlePickerPlayWhenReady;
     private boolean restorePlayStateAllowed;
     private boolean play;
     private float subtitlesScale;
@@ -449,18 +450,6 @@ public class PlayerActivity extends Activity {
         }
 
         controlView = playerView.findViewById(R.id.exo_controller);
-        controlView.setProgressUpdateListener((position, bufferedPosition) -> updateChapterButtons());
-        findViewById(R.id.chapter_previous).setOnClickListener(view -> {
-            if (player != null) {
-                seekToChapter(VideoChapter.previousIndex(chapters, player.getCurrentPosition()));
-            }
-        });
-        findViewById(R.id.chapters).setOnClickListener(view -> showChapters());
-        findViewById(R.id.chapter_next).setOnClickListener(view -> {
-            if (player != null) {
-                seekToChapter(VideoChapter.nextIndex(chapters, player.getCurrentPosition()));
-            }
-        });
         controlView.setOnApplyWindowInsetsListener((view, windowInsets) -> {
             if (windowInsets != null) {
                 if (Build.VERSION.SDK_INT >= 31) {
@@ -526,10 +515,6 @@ public class PlayerActivity extends Activity {
                 Utils.setViewParams(findViewById(R.id.exo_progress), windowInsets.getSystemWindowInsetLeft(), 0, windowInsets.getSystemWindowInsetRight(), 0,
                         0, 0, 0, getResources().getDimensionPixelSize(R.dimen.exo_styled_progress_margin_bottom) + progressBarMarginBottom);
 
-                Utils.setViewMargins(findViewById(R.id.chapter_controls), windowInsets.getSystemWindowInsetLeft(), 0,
-                        windowInsets.getSystemWindowInsetRight(),
-                        getResources().getDimensionPixelSize(R.dimen.chapter_controls_margin_bottom) + progressBarMarginBottom);
-
                 Utils.setViewMargins(findViewById(R.id.exo_error_message), 0, windowInsets.getSystemWindowInsetTop() / 2, 0, getResources().getDimensionPixelSize(R.dimen.exo_error_message_margin_bottom) + windowInsets.getSystemWindowInsetBottom() / 2);
 
                 windowInsets.consumeSystemWindowInsets();
@@ -547,9 +532,6 @@ public class PlayerActivity extends Activity {
         } catch (NoSuchFieldException | IllegalAccessException e) {
             e.printStackTrace();
         }
-
-        findViewById(R.id.previous).setOnClickListener(view -> skipToAdjacent(false));
-        findViewById(R.id.next).setOnClickListener(view -> skipToAdjacent(true));
 
         exoPlayPause.setOnClickListener(view -> dispatchPlayPause());
 
@@ -588,13 +570,11 @@ public class PlayerActivity extends Activity {
             return true;
         });
 
-        updateButtons(false);
-
         final HorizontalScrollView horizontalScrollView = (HorizontalScrollView) getLayoutInflater().inflate(R.layout.controls, null);
         final LinearLayout controls = horizontalScrollView.findViewById(R.id.controls);
 
-        controls.addView(buttonOpen);
-        controls.addView(buttonLoadSubtitles);
+        controls.addView(buttonOpen, 0);
+        controls.addView(buttonLoadSubtitles, 1);
         controls.addView(exoSubtitle);
         if (mPrefs.repeatToggle) {
             controls.addView(exoRepeat);
@@ -605,6 +585,11 @@ public class PlayerActivity extends Activity {
         controls.addView(exoSettings);
 
         exoBasicControls.addView(horizontalScrollView);
+        controlView.setProgressUpdateListener((position, bufferedPosition) -> updateChapterButtons());
+        findViewById(R.id.chapter_previous).setOnClickListener(view -> navigateChapterOrFile(false));
+        findViewById(R.id.chapters).setOnClickListener(view -> showChapters());
+        findViewById(R.id.chapter_next).setOnClickListener(view -> navigateChapterOrFile(true));
+        updateButtons(false);
 
         if (Build.VERSION.SDK_INT > 23) {
             horizontalScrollView.setOnScrollChangeListener((view, i, i1, i2, i3) -> resetHideCallbacks());
@@ -1088,6 +1073,8 @@ public class PlayerActivity extends Activity {
                 }
 
                 handleSubtitles(uri);
+            } else if (alive) {
+                cancelSubtitlePicking();
             }
         } else if (requestCode == REQUEST_CHOOSER_SCOPE_DIR) {
             if (resultCode == RESULT_OK) {
@@ -1115,11 +1102,16 @@ public class PlayerActivity extends Activity {
         }
     }
 
-    private void handleSubtitles(Uri uri) {
+    void handleSubtitles(Uri uri) {
         // Convert subtitles to UTF-8 if necessary
         SubtitleUtils.clearCache(this);
-        uri = Utils.convertToUTF(this, uri);
-        mPrefs.updateSubtitle(uri);
+        Uri converted = Utils.convertToUTF(this, uri);
+        if (converted != null) {
+            apiSubs.clear();
+            mPrefs.updateSubtitle(converted);
+        } else if (!Utils.isSupportedNetworkUri(uri)) {
+            showSnack(getString(R.string.subtitle_load_failed), uri.toString());
+        }
     }
 
     public void initializePlayer() {
@@ -1254,11 +1246,11 @@ public class PlayerActivity extends Activity {
                         .build();
                 mediaItemBuilder.setMediaMetadata(mediaMetadata);
             }
-            if (apiAccess && apiSubs.size() > 0) {
-                mediaItemBuilder.setSubtitleConfigurations(apiSubs);
-            } else if (mPrefs.subtitleUri != null && Utils.fileExists(this, mPrefs.subtitleUri)) {
+            if (mPrefs.subtitleUri != null && Utils.fileExists(this, mPrefs.subtitleUri)) {
                 MediaItem.SubtitleConfiguration subtitle = SubtitleUtils.buildSubtitle(this, mPrefs.subtitleUri, null, true);
                 mediaItemBuilder.setSubtitleConfigurations(Collections.singletonList(subtitle));
+            } else if (apiAccess && apiSubs.size() > 0) {
+                mediaItemBuilder.setSubtitleConfigurations(apiSubs);
             }
             player.setMediaItem(mediaItemBuilder.build(), mPrefs.getPosition());
 
@@ -1277,7 +1269,11 @@ public class PlayerActivity extends Activity {
 
             updateLoading(true);
 
-            if (mPrefs.getPosition() == 0L || apiAccess || apiAccessPartial) {
+            if (subtitlePickerPlayWhenReady != null) {
+                play = false;
+                restorePlayState = subtitlePickerPlayWhenReady;
+                subtitlePickerPlayWhenReady = null;
+            } else if (mPrefs.getPosition() == 0L || apiAccess || apiAccessPartial) {
                 play = true;
             }
 
@@ -1322,6 +1318,7 @@ public class PlayerActivity extends Activity {
             player.setHandleAudioBecomingNoisy(!isTvBox);
 //            mediaSession.setActive(true);
         } else {
+            subtitlePickerPlayWhenReady = null;
             playerView.showController();
         }
 
@@ -1550,6 +1547,8 @@ public class PlayerActivity extends Activity {
                     }
                     if (!apiAccess) {
                         setSelectedTracks(mPrefs.subtitleTrackId, mPrefs.audioTrackId);
+                    } else if (mPrefs.subtitleUri != null) {
+                        setSelectedTracks(null, null);
                     }
                 }
             } else if (state == Player.STATE_ENDED) {
@@ -1567,6 +1566,7 @@ public class PlayerActivity extends Activity {
                 final ExoPlaybackException exoPlaybackException = (ExoPlaybackException) error;
                 if (exoPlaybackException.type == ExoPlaybackException.TYPE_SOURCE) {
                     releasePlayer(false);
+                    showError(exoPlaybackException);
                     return;
                 }
                 if (controllerVisible && controllerVisibleFully) {
@@ -1624,6 +1624,7 @@ public class PlayerActivity extends Activity {
     }
 
     private void loadSubtitleFile(Uri pickerInitialUri) {
+        subtitlePickerPlayWhenReady = player != null && player.getPlayWhenReady();
         Toast.makeText(PlayerActivity.this, R.string.open_subtitles, Toast.LENGTH_SHORT).show();
         if (useMediaStore()) {
             Intent intent = new Intent(this, MediaStoreChooserActivity.class);
@@ -1635,14 +1636,7 @@ public class PlayerActivity extends Activity {
         } else {
             enableRotation();
 
-            if (pickerInitialUri == null || Utils.isSupportedNetworkUri(pickerInitialUri)) {
-                pickerInitialUri = Utils.getMoviesFolderUri();
-            } else if (ContentResolver.SCHEME_FILE.equals(pickerInitialUri.getScheme()) && pickerInitialUri.getPath() != null) {
-                File directory = new File(pickerInitialUri.getPath()).getParentFile();
-                if (directory != null) {
-                    pickerInitialUri = Uri.fromFile(directory);
-                }
-            }
+            pickerInitialUri = Utils.getSubtitleDirectoryUri(this, pickerInitialUri);
 
             final Intent intent = createBaseFileIntent(Intent.ACTION_OPEN_DOCUMENT, pickerInitialUri);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -1667,6 +1661,11 @@ public class PlayerActivity extends Activity {
 
             safelyStartActivityForResult(intent, REQUEST_CHOOSER_SUBTITLE);
         }
+    }
+
+    void cancelSubtitlePicking() {
+        subtitlePickerPlayWhenReady = null;
+        resetHideCallbacks();
     }
 
     private void requestDirectoryAccess() {
@@ -1703,7 +1702,11 @@ public class PlayerActivity extends Activity {
             if (group.getType() == trackType) {
                 final TrackGroup trackGroup = group.getMediaTrackGroup();
                 for (int i = 0; i < group.length; i++) {
-                    if (group.isTrackSupported(i) && Objects.equals(id, group.getTrackFormat(i).id)) {
+                    String formatId = group.getTrackFormat(i).id;
+                    boolean externalId = trackType == C.TRACK_TYPE_TEXT && mPrefs.subtitleUri != null
+                            && mPrefs.subtitleUri.toString().equals(id);
+                    if (group.isTrackSupported(i) && (Objects.equals(id, formatId)
+                            || (externalId && SubtitleUtils.matchesExternalSubtitleId(formatId, id)))) {
                         return new TrackSelectionOverride(trackGroup, i);
                     }
                 }
@@ -1718,13 +1721,16 @@ public class PlayerActivity extends Activity {
         }
 
         final boolean externalSubtitle = mPrefs.subtitleUri != null && Utils.fileExists(this, mPrefs.subtitleUri);
-        TrackSelectionOverride subtitleOverride = subtitleId != null || externalSubtitle
+        TrackSelectionOverride subtitleOverride = subtitleId != null
                 ? getTrackOverrideFromFormatId(C.TRACK_TYPE_TEXT, subtitleId) : null;
         TrackSelectionOverride audioOverride = getTrackOverrideFromFormatId(C.TRACK_TYPE_AUDIO, audioId);
         TrackSelectionParameters.Builder parameters = player.getTrackSelectionParameters().buildUpon();
         if ("#none".equals(subtitleId)) {
             parameters.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
         } else {
+            if (subtitleOverride == null && externalSubtitle) {
+                subtitleOverride = getTrackOverrideFromFormatId(C.TRACK_TYPE_TEXT, mPrefs.subtitleUri.toString());
+            }
             if (subtitleOverride == null && !externalSubtitle) {
                 subtitleOverride = SubtitleUtils.findPreferredSubtitle(player.getCurrentTracks());
             }
@@ -2198,6 +2204,9 @@ public class PlayerActivity extends Activity {
         if (target != null) {
             releasePlayer();
             mPrefs.updateMedia(this, target, null);
+            mPrefs.updatePosition(0L);
+            restorePlayState = false;
+            subtitlePickerPlayWhenReady = null;
             searchSubtitles();
             initializePlayer();
         }
@@ -2220,12 +2229,6 @@ public class PlayerActivity extends Activity {
 
     void updateButtons(final boolean enable) {
         updateChapterButtons();
-        final boolean navigationVisible = enable && haveMedia && !apiAccess;
-        final boolean canRequestScope = navigationVisible && needsDirectoryAccess();
-        findViewById(R.id.previous).setVisibility(navigationVisible ? View.VISIBLE : View.INVISIBLE);
-        findViewById(R.id.next).setVisibility(navigationVisible ? View.VISIBLE : View.INVISIBLE);
-        Utils.setButtonEnabled(this, findViewById(R.id.previous), navigationVisible && (previousUri != null || canRequestScope));
-        Utils.setButtonEnabled(this, findViewById(R.id.next), navigationVisible && (nextUri != null || canRequestScope));
         if (isTvBox) {
             Utils.setButtonEnabled(this, exoSettings, true);
         } else {
@@ -2269,13 +2272,35 @@ public class PlayerActivity extends Activity {
     }
 
     private void updateChapterButtons() {
-        boolean enabled = haveMedia && player != null && player.isCurrentMediaItemSeekable() && !chapters.isEmpty();
+        boolean active = haveMedia && player != null && !videoLoading;
+        boolean seekable = active && player.isCurrentMediaItemSeekable();
+        boolean fileNavigation = active && !apiAccess;
+        boolean canRequestScope = fileNavigation && needsDirectoryAccess();
         long position = player == null ? 0 : player.getCurrentPosition();
-        Utils.setButtonEnabled(this, findViewById(R.id.chapters), enabled);
+        int previousChapter = VideoChapter.navigationIndex(chapters, position, false, seekable);
+        int nextChapter = VideoChapter.navigationIndex(chapters, position, true, seekable);
+        Utils.setButtonEnabled(this, findViewById(R.id.chapters), seekable && !chapters.isEmpty());
         Utils.setButtonEnabled(this, findViewById(R.id.chapter_previous),
-                enabled && VideoChapter.previousIndex(chapters, position) >= 0);
+                previousChapter >= 0 || (fileNavigation && (previousUri != null || canRequestScope)));
         Utils.setButtonEnabled(this, findViewById(R.id.chapter_next),
-                enabled && VideoChapter.nextIndex(chapters, position) >= 0);
+                nextChapter >= 0 || (fileNavigation && (nextUri != null || canRequestScope)));
+        findViewById(R.id.chapter_previous).setContentDescription(getString(
+                previousChapter >= 0 ? R.string.chapter_previous : R.string.video_previous));
+        findViewById(R.id.chapter_next).setContentDescription(getString(
+                nextChapter >= 0 ? R.string.chapter_next : R.string.video_next));
+    }
+
+    private void navigateChapterOrFile(boolean next) {
+        if (player == null || !haveMedia || videoLoading) {
+            return;
+        }
+        int index = VideoChapter.navigationIndex(chapters, player.getCurrentPosition(), next,
+                player.isCurrentMediaItemSeekable());
+        if (index >= 0) {
+            seekToChapter(index);
+        } else if (!apiAccess) {
+            skipToAdjacent(next);
+        }
     }
 
     private void showChapters() {

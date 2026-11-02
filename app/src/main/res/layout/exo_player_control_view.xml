@@ -87,37 +87,6 @@
 
   </FrameLayout>
 
-  <LinearLayout
-      android:id="@+id/chapter_controls"
-      android:layout_width="wrap_content"
-      android:layout_height="wrap_content"
-      android:layout_gravity="bottom|center_horizontal"
-      android:layout_marginBottom="@dimen/chapter_controls_margin_bottom"
-      android:orientation="horizontal">
-
-    <ImageButton
-        android:id="@+id/chapter_previous"
-        style="@style/ExoStyledControls.Button.Bottom"
-        android:contentDescription="@string/chapter_previous"
-        android:enabled="false"
-        android:src="@drawable/exo_icon_previous"/>
-
-    <ImageButton
-        android:id="@+id/chapters"
-        style="@style/ExoStyledControls.Button.Bottom"
-        android:contentDescription="@string/chapters"
-        android:enabled="false"
-        android:src="@drawable/ic_chapters_24dp"/>
-
-    <ImageButton
-        android:id="@+id/chapter_next"
-        style="@style/ExoStyledControls.Button.Bottom"
-        android:contentDescription="@string/chapter_next"
-        android:enabled="false"
-        android:src="@drawable/exo_icon_next"/>
-
-  </LinearLayout>
-
   <com.brouken.player.CustomDefaultTimeBar android:id="@+id/exo_progress"
       android:layout_width="match_parent"
       android:layout_height="@dimen/exo_styled_progress_layout_height"
@@ -153,11 +122,6 @@
       android:gravity="center"
       android:padding="@dimen/exo_styled_controls_padding">
 
-    <ImageButton android:id="@+id/previous"
-        style="@style/ExoStyledControls.Button.Center.Secondary"
-        android:contentDescription="@string/exo_controls_previous_description"
-        android:src="@drawable/exo_styled_controls_previous"/>
-
     <ImageButton android:id="@+id/exo_prev"
         style="@style/ExoStyledControls.Button.Center.Previous"/>
 
@@ -176,11 +140,6 @@
 
     <ImageButton android:id="@+id/exo_next"
         style="@style/ExoStyledControls.Button.Center.Next"/>
-
-    <ImageButton android:id="@+id/next"
-        style="@style/ExoStyledControls.Button.Center.Secondary"
-        android:contentDescription="@string/exo_controls_next_description"
-        android:src="@drawable/exo_styled_controls_next"/>
 
   </LinearLayout>
 

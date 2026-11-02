@@ -29,6 +29,7 @@ import android.os.LocaleList;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.util.Rational;
@@ -48,10 +49,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 
 import com.obsez.android.lib.filechooser.ChooserDialog;
+import com.obsez.android.lib.filechooser.internals.FileUtil;
 import com.sigpwned.chardet4j.Chardet;
 import com.sigpwned.chardet4j.io.DecodedInputStreamReader;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -156,6 +157,10 @@ class Utils {
     }
 
     public static String getFileName(Context context, Uri uri) {
+        return getFileName(context, uri, false);
+    }
+
+    static String getFileName(Context context, Uri uri, boolean includeExtension) {
         String result = null;
         try {
             if (ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())) {
@@ -174,7 +179,7 @@ class Utils {
                     result = result.substring(cut + 1);
                 }
             }
-            if (result.indexOf(".") > 0)
+            if (!includeExtension && result.indexOf(".") > 0)
                 result = result.substring(0, result.lastIndexOf("."));
         } catch (Exception e) {
             e.printStackTrace();
@@ -589,11 +594,12 @@ class Utils {
     }
 
     public static boolean alternativeChooser(PlayerActivity activity, Uri initialUri, boolean video) {
-        String startPath;
-        if (initialUri != null && (new File(initialUri.getSchemeSpecificPart())).exists()) {
-            startPath = initialUri.getSchemeSpecificPart();
-        } else {
-            startPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).getAbsolutePath();
+        File mediaFile = getMediaFile(activity, initialUri);
+        String startPath = mediaFile == null
+                ? Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES).getAbsolutePath()
+                : mediaFile.getAbsolutePath();
+        if (!video && initialUri != null && !isSupportedNetworkUri(initialUri) && mediaFile == null) {
+            Toast.makeText(activity, R.string.subtitle_directory_unavailable, Toast.LENGTH_LONG).show();
         }
 
         try {
@@ -617,11 +623,7 @@ class Utils {
                             activity.mPrefs.updateMedia(activity, uri, null);
                             activity.searchSubtitles();
                         } else {
-                            // Convert subtitles to UTF-8 if necessary
-                            SubtitleUtils.clearCache(activity);
-                            uri = Utils.convertToUTF(activity, uri);
-
-                            activity.mPrefs.updateSubtitle(uri);
+                            activity.handleSubtitles(uri);
                         }
                         PlayerActivity.focusPlay = true;
                         activity.initializePlayer();
@@ -630,6 +632,9 @@ class Utils {
                 // to handle the back key pressed or clicked outside the dialog:
                 .withOnCancelListener(new DialogInterface.OnCancelListener() {
                     public void onCancel(DialogInterface dialog) {
+                        if (!video) {
+                            activity.cancelSubtitlePicking();
+                        }
                         dialog.cancel(); // MUST have
                     }
                 });
@@ -639,6 +644,76 @@ class Utils {
         chooserDialog.build().show();
 
         return true;
+    }
+
+    static File getMediaFile(Context context, Uri uri) {
+        if (uri == null || isSupportedNetworkUri(uri)) {
+            return null;
+        }
+        if (uri.getScheme() == null || ContentResolver.SCHEME_FILE.equals(uri.getScheme())) {
+            File file = new File(uri.getPath());
+            return file.exists() ? file : null;
+        }
+        if (ContentResolver.SCHEME_CONTENT.equals(uri.getScheme())) {
+            if ("com.android.externalstorage.documents".equals(uri.getAuthority())
+                    && DocumentsContract.isDocumentUri(context, uri)) {
+                String[] parts = DocumentsContract.getDocumentId(uri).split(":", 2);
+                if (parts.length == 2) {
+                    for (String root : FileUtil.getStoragePaths(context).keySet()) {
+                        if (("primary".equalsIgnoreCase(parts[0]) && root.equals(Environment.getExternalStorageDirectory().getPath()))
+                                || parts[0].equalsIgnoreCase(new File(root).getName())) {
+                            File file = new File(root, parts[1]);
+                            return file.exists() ? file : null;
+                        }
+                    }
+                }
+            }
+            try (Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.MediaColumns.DATA},
+                    null, null, null)) {
+                if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) {
+                    File file = new File(cursor.getString(0));
+                    if (file.exists()) {
+                        return file;
+                    }
+                }
+            } catch (IllegalArgumentException | SecurityException e) {
+                e.printStackTrace();
+            }
+        }
+        return null;
+    }
+
+    static Uri getSubtitleDirectoryUri(Context context, Uri mediaUri) {
+        if (mediaUri == null || isSupportedNetworkUri(mediaUri)) {
+            return getMoviesFolderUri();
+        }
+        final String authority = "com.android.externalstorage.documents";
+        if (authority.equals(mediaUri.getAuthority()) && DocumentsContract.isDocumentUri(context, mediaUri)) {
+            String id = DocumentsContract.getDocumentId(mediaUri);
+            int slash = id.lastIndexOf('/');
+            int colon = id.indexOf(':');
+            if (colon >= 0) {
+                String parentId = slash > colon ? id.substring(0, slash) : id.substring(0, colon + 1);
+                return DocumentsContract.buildDocumentUri(authority, parentId);
+            }
+        }
+        File file = getMediaFile(context, mediaUri);
+        if (file != null && file.getParentFile() != null) {
+            try {
+                String directory = file.getParentFile().getCanonicalPath();
+                for (String root : FileUtil.getStoragePaths(context).keySet()) {
+                    String canonicalRoot = new File(root).getCanonicalPath();
+                    if (directory.equals(canonicalRoot) || directory.startsWith(canonicalRoot + "/")) {
+                        String volumeId = root.equals(Environment.getExternalStorageDirectory().getPath()) ? "primary" : new File(root).getName();
+                        String relativePath = directory.equals(canonicalRoot) ? "" : directory.substring(canonicalRoot.length() + 1);
+                        return DocumentsContract.buildDocumentUri(authority, volumeId + ":" + relativePath);
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return mediaUri;
     }
 
     public static Uri convertToUTF(PlayerActivity activity, Uri subtitleUri) {
@@ -652,46 +727,43 @@ class Utils {
                 return null;
             } else {
                 InputStream inputStream = activity.getContentResolver().openInputStream(subtitleUri);
+                if (inputStream == null) {
+                    throw new IOException("Unable to open subtitle: " + subtitleUri);
+                }
                 return convertInputStreamToUTF(activity, subtitleUri, inputStream);
             }
-        } catch (Exception e) {
+        } catch (IOException | SecurityException e) {
             e.printStackTrace();
+            return null;
         }
-        return subtitleUri;
     }
 
     public static Uri convertInputStreamToUTF(Context context, Uri subtitleUri, InputStream inputStream) {
-        try {
-            DecodedInputStreamReader decodedInputStreamReader = Chardet.decode(inputStream, StandardCharsets.UTF_8);
+        try (DecodedInputStreamReader decodedInputStreamReader = Chardet.decode(inputStream, StandardCharsets.UTF_8)) {
             Charset charset = decodedInputStreamReader.charset();
             if (!StandardCharsets.UTF_8.equals(charset)) {
-                String filename = subtitleUri.getPath();
-                filename = filename.substring(filename.lastIndexOf("/") + 1);
-                final File file = new File(context.getCacheDir(), filename);
-                final BufferedReader bufferedReader = new BufferedReader(decodedInputStreamReader);
-                final BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file));
-                char[] buffer = new char[512];
-                int num;
-                int pass = 0;
-                boolean success = true;
-                while ((num = bufferedReader.read(buffer)) != -1) {
-                    bufferedWriter.write(buffer, 0, num);
-                    pass++;
-                    if (pass * 512 > 2_000_000) {
-                        success = false;
-                        break;
+                String filename = getFileName(context, subtitleUri, true);
+                if (filename == null || filename.isEmpty()) {
+                    throw new IOException("Subtitle filename is unavailable: " + subtitleUri);
+                }
+                final File file = new File(context.getCacheDir(), new File(filename).getName());
+                try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file))) {
+                    char[] buffer = new char[512];
+                    int num;
+                    int characters = 0;
+                    while ((num = decodedInputStreamReader.read(buffer)) != -1) {
+                        characters += num;
+                        if (characters > 2_000_000) {
+                            throw new IOException("Subtitle exceeds conversion size limit: " + subtitleUri);
+                        }
+                        bufferedWriter.write(buffer, 0, num);
                     }
                 }
-                bufferedWriter.close();
-                bufferedReader.close();
-                if (success) {
-                    subtitleUri = Uri.fromFile(file);
-                } else {
-                    subtitleUri = null;
-                }
+                subtitleUri = Uri.fromFile(file);
             }
         } catch (IOException e) {
             e.printStackTrace();
+            return null;
         }
         return subtitleUri;
     }

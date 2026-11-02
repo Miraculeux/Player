@@ -3,9 +3,13 @@
     <string name="error_files_missing">文件应用处于禁用或缺失状态</string>
     <string name="error_details">详情</string>
     <string name="open_subtitles">加载字幕</string>
+    <string name="subtitle_load_failed">无法加载字幕文件</string>
+    <string name="subtitle_directory_unavailable">无法定位视频所在目录，请手动选择字幕文件。</string>
     <string name="chapters">章节</string>
     <string name="chapter_previous">上一章</string>
     <string name="chapter_next">下一章</string>
+    <string name="video_previous">上一个视频</string>
+    <string name="video_next">下一个视频</string>
     <string name="chapter_number">第 %1$d 章</string>
     <string name="onboarding_video_open_description">选择以打开视频文件。请使用独立的加载字幕按钮加载外挂字幕。</string>
     <string name="request_video_directory_scope">请允许 %s 访问视频所在文件夹，以切换上一个／下一个视频并自动加载外挂字幕。</string>

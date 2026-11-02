@@ -11,9 +11,13 @@
     <string name="request_video_directory_scope">Allow %s to access the folder containing your videos to enable previous/next video navigation and automatic loading of external subtitles.</string>
     <string name="onboarding_open_description">Tap to open a video file. Long tap to load external subtitles.</string>
     <string name="open_subtitles">Load subtitles</string>
+    <string name="subtitle_load_failed">Unable to load the subtitle file</string>
+    <string name="subtitle_directory_unavailable">Cannot locate the video folder. Please browse to the subtitle file.</string>
     <string name="chapters">Chapters</string>
     <string name="chapter_previous">Previous chapter</string>
     <string name="chapter_next">Next chapter</string>
+    <string name="video_previous">Previous video</string>
+    <string name="video_next">Next video</string>
     <string name="chapter_number">Chapter %1$d</string>
     <string name="error_details">Details</string>
     <string name="error_files_missing">Files app is disabled or missing</string>

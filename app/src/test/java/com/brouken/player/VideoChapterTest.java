@@ -108,6 +108,33 @@ public class VideoChapterTest {
     }
 
     @Test
+    public void navigationUsesChaptersInsideTheFile() {
+        assertEquals(0, VideoChapter.navigationIndex(chapters(), 15000, false, true));
+        assertEquals(2, VideoChapter.navigationIndex(chapters(), 15000, true, true));
+    }
+
+    @Test
+    public void navigationFallsBackToFilesAtChapterBoundaries() {
+        assertEquals(-1, VideoChapter.navigationIndex(chapters(), 0, false, true));
+        assertEquals(-1, VideoChapter.navigationIndex(chapters(), 9000, false, true));
+        assertEquals(-1, VideoChapter.navigationIndex(chapters(), 20000, true, true));
+        assertEquals(-1, VideoChapter.navigationIndex(chapters(), 29999, true, true));
+        assertEquals(0, VideoChapter.navigationIndex(
+                Collections.singletonList(new VideoChapter(5000, "Intro")), 0, true, true));
+    }
+
+    @Test
+    public void navigationFallsBackToFilesWithoutUsableChapters() {
+        assertEquals(-1, VideoChapter.navigationIndex(Collections.emptyList(), 0, false, true));
+        assertEquals(-1, VideoChapter.navigationIndex(Collections.emptyList(), 0, true, true));
+        assertEquals(-1, VideoChapter.navigationIndex(chapters(), 15000, false, false));
+        assertEquals(-1, VideoChapter.navigationIndex(chapters(), 15000, true, false));
+        List<VideoChapter> single = Collections.singletonList(new VideoChapter(0, "Intro"));
+        assertEquals(-1, VideoChapter.navigationIndex(single, 5000, false, true));
+        assertEquals(-1, VideoChapter.navigationIndex(single, 5000, true, true));
+    }
+
+    @Test
     public void readsChapterMetadataAndExcludesHiddenEntries() {
         Metadata metadata = new Metadata(chapter(0, false), chapter(10000, true), chapter(20000, false));
         List<VideoChapter> result = VideoChapter.fromMetadata(metadata);

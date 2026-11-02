@@ -17,8 +17,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 class SubtitleUtils {
+
+    static boolean matchesExternalSubtitleId(String trackId, String subtitleId) {
+        // Merged media sources prefix format IDs with the source index.
+        return trackId != null && subtitleId != null
+                && (trackId.equals(subtitleId) || trackId.endsWith(":" + subtitleId));
+    }
 
     public static TrackSelectionOverride findPreferredSubtitle(Tracks tracks) {
         TrackSelectionOverride preferred = null;
@@ -45,8 +52,8 @@ class SubtitleUtils {
         return preferred;
     }
 
-    public static String getSubtitleMime(Uri uri) {
-        final String path = uri.getPath();
+    static String getSubtitleMime(String name) {
+        final String path = name == null ? "" : name.toLowerCase(Locale.ROOT);
         if (path.endsWith(".ssa") || path.endsWith(".ass")) {
             return MimeTypes.TEXT_SSA;
         } else if (path.endsWith(".vtt")) {
@@ -293,12 +300,13 @@ class SubtitleUtils {
     }
 
     public static MediaItem.SubtitleConfiguration buildSubtitle(Context context, Uri uri, String subtitleName, boolean selected) {
-        final String subtitleMime = SubtitleUtils.getSubtitleMime(uri);
+        final String subtitleMime = SubtitleUtils.getSubtitleMime(Utils.getFileName(context, uri, true));
         final String subtitleLanguage = SubtitleUtils.getSubtitleLanguage(uri);
         if (subtitleLanguage == null && subtitleName == null)
             subtitleName = Utils.getFileName(context, uri);
 
         MediaItem.SubtitleConfiguration.Builder subtitleConfigurationBuilder = new MediaItem.SubtitleConfiguration.Builder(uri)
+                .setId(uri.toString())
                 .setMimeType(subtitleMime)
                 .setLanguage(subtitleLanguage)
                 .setRoleFlags(C.ROLE_FLAG_SUBTITLE)
