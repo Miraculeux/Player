@@ -1650,16 +1650,17 @@ public class PlayerActivity extends Activity {
             startActivityForResult(intent, code);
     }
 
-    private TrackGroup getTrackGroupFromFormatId(int trackType, String id) {
+    private TrackSelectionOverride getTrackOverrideFromFormatId(int trackType, String id) {
         if ((id == null && trackType == C.TRACK_TYPE_AUDIO ) || player == null) {
             return null;
         }
         for (Tracks.Group group : player.getCurrentTracks().getGroups()) {
             if (group.getType() == trackType) {
                 final TrackGroup trackGroup = group.getMediaTrackGroup();
-                final Format format = trackGroup.getFormat(0);
-                if (Objects.equals(id, format.id)) {
-                    return trackGroup;
+                for (int i = 0; i < group.length; i++) {
+                    if (group.isTrackSupported(i) && Objects.equals(id, group.getTrackFormat(i).id)) {
+                        return new TrackSelectionOverride(trackGroup, i);
+                    }
                 }
             }
         }
@@ -1667,35 +1668,30 @@ public class PlayerActivity extends Activity {
     }
 
     public void setSelectedTracks(final String subtitleId, final String audioId) {
+        if (player == null) {
+            return;
+        }
+
+        final boolean externalSubtitle = mPrefs.subtitleUri != null && Utils.fileExists(this, mPrefs.subtitleUri);
+        TrackSelectionOverride subtitleOverride = subtitleId != null || externalSubtitle
+                ? getTrackOverrideFromFormatId(C.TRACK_TYPE_TEXT, subtitleId) : null;
+        TrackSelectionOverride audioOverride = getTrackOverrideFromFormatId(C.TRACK_TYPE_AUDIO, audioId);
+        TrackSelectionParameters.Builder parameters = player.getTrackSelectionParameters().buildUpon();
         if ("#none".equals(subtitleId)) {
-            if (trackSelector == null) {
-                return;
+            parameters.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true);
+        } else {
+            if (subtitleOverride == null && !externalSubtitle) {
+                subtitleOverride = SubtitleUtils.findPreferredSubtitle(player.getCurrentTracks());
             }
-            trackSelector.setParameters(trackSelector.buildUponParameters().setDisabledTextTrackSelectionFlags(C.SELECTION_FLAG_DEFAULT | C.SELECTION_FLAG_FORCED));
-        }
-
-        TrackGroup subtitleGroup = getTrackGroupFromFormatId(C.TRACK_TYPE_TEXT, subtitleId);
-        TrackGroup audioGroup = getTrackGroupFromFormatId(C.TRACK_TYPE_AUDIO, audioId);
-
-        TrackSelectionParameters.Builder overridesBuilder = new TrackSelectionParameters.Builder(this);
-        TrackSelectionOverride trackSelectionOverride = null;
-        final List<Integer> tracks = new ArrayList<>(); tracks.add(0);
-        if (subtitleGroup != null) {
-            trackSelectionOverride = new TrackSelectionOverride(subtitleGroup, tracks);
-            overridesBuilder.addOverride(trackSelectionOverride);
-        }
-        if (audioGroup != null) {
-            trackSelectionOverride = new TrackSelectionOverride(audioGroup, tracks);
-            overridesBuilder.addOverride(trackSelectionOverride);
-        }
-
-        if (player != null) {
-            TrackSelectionParameters.Builder trackSelectionParametersBuilder = player.getTrackSelectionParameters().buildUpon();
-            if (trackSelectionOverride != null) {
-                trackSelectionParametersBuilder.setOverrideForType(trackSelectionOverride);
+            if (subtitleOverride != null) {
+                parameters.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false);
+                parameters.setOverrideForType(subtitleOverride);
             }
-            player.setTrackSelectionParameters(trackSelectionParametersBuilder.build());
         }
+        if (audioOverride != null) {
+            parameters.setOverrideForType(audioOverride);
+        }
+        player.setTrackSelectionParameters(parameters.build());
     }
 
     private boolean hasOverrideType(final int trackType) {
@@ -1727,8 +1723,11 @@ public class PlayerActivity extends Activity {
 
         for (Tracks.Group group : tracks.getGroups()) {
             if (group.isSelected() && group.getType() == trackType) {
-                Format format = group.getMediaTrackGroup().getFormat(0);
-                return format.id;
+                for (int i = 0; i < group.length; i++) {
+                    if (group.isTrackSelected(i)) {
+                        return group.getTrackFormat(i).id;
+                    }
+                }
             }
         }
 

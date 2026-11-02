@@ -41,6 +41,7 @@ AC-4 audio is supported on devices providing such system decoder (e.g. Samsung G
 ## Features
 
  * Audio/subtitle track selection
+ * Automatically select supported embedded subtitles in this order: Simplified Chinese, Traditional Chinese, Chinese with unspecified script, then English. Language tags and track labels are used to identify the script. Within the same preference, full subtitles are preferred over forced-only tracks. Saved subtitle selections (including Off) and external subtitles take precedence. If none match, the existing default selection behavior is retained.
  * Playback speed control
  * Horizontal swipe and double tap to quickly seek
  * Vertical swipe to change brightness (left) / volume (right)

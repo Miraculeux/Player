@@ -8,6 +8,9 @@ import androidx.documentfile.provider.DocumentFile;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.Format;
+import androidx.media3.common.TrackSelectionOverride;
+import androidx.media3.common.Tracks;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -16,6 +19,31 @@ import java.util.Comparator;
 import java.util.List;
 
 class SubtitleUtils {
+
+    public static TrackSelectionOverride findPreferredSubtitle(Tracks tracks) {
+        TrackSelectionOverride preferred = null;
+        int bestPriority = SubtitleLanguagePreference.UNMATCHED;
+        boolean bestForced = false;
+        for (Tracks.Group group : tracks.getGroups()) {
+            if (group.getType() != C.TRACK_TYPE_TEXT) {
+                continue;
+            }
+            for (int i = 0; i < group.length; i++) {
+                if (!group.isTrackSupported(i)) {
+                    continue;
+                }
+                Format format = group.getTrackFormat(i);
+                int priority = SubtitleLanguagePreference.getPriority(format.language, format.label);
+                boolean forced = (format.selectionFlags & C.SELECTION_FLAG_FORCED) != 0;
+                if (priority < bestPriority || (priority == bestPriority && bestForced && !forced)) {
+                    preferred = new TrackSelectionOverride(group.getMediaTrackGroup(), i);
+                    bestPriority = priority;
+                    bestForced = forced;
+                }
+            }
+        }
+        return preferred;
+    }
 
     public static String getSubtitleMime(Uri uri) {
         final String path = uri.getPath();
