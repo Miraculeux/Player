@@ -3,6 +3,15 @@
     <string name="error_files_missing">文件应用处于禁用或缺失状态</string>
     <string name="error_details">详情</string>
     <string name="open_subtitles">加载字幕</string>
+    <string name="subtitle_offset">字幕时间偏移</string>
+    <string name="subtitle_adjustments">字幕调整</string>
+    <string name="subtitle_font_size_scope">字号设置对所有视频生效。</string>
+    <string name="full_settings">完整设置</string>
+    <string name="subtitle_offset_value">%1$+.2f 秒</string>
+    <string name="subtitle_offset_summary">负数为提前，正数为推迟。按当前视频单独保存。</string>
+    <string name="subtitle_earlier">提前 0.25 秒</string>
+    <string name="subtitle_later">推迟 0.25 秒</string>
+    <string name="subtitle_offset_reset">归零</string>
     <string name="subtitle_load_failed">无法加载字幕文件</string>
     <string name="subtitle_directory_unavailable">无法定位视频所在目录，请手动选择字幕文件。</string>
     <string name="chapter_previous">上一章</string>

@@ -24,12 +24,15 @@ class Prefs {
 
     private static final String PREF_KEY_MEDIA_URI = "mediaUri";
     private static final String PREF_KEY_MEDIA_TYPE = "mediaType";
+    private static final String PREF_KEY_MEDIA_COMPLETED = "mediaCompleted";
+    private static final String PREF_KEY_SUBTITLE_OFFSET_PREFIX = "subtitleOffset:";
     private static final String PREF_KEY_BRIGHTNESS = "brightness";
     private static final String PREF_KEY_FIRST_RUN = "firstRun";
     private static final String PREF_KEY_SUBTITLE_URI = "subtitleUri";
 
     private static final String PREF_KEY_AUDIO_TRACK_ID = "audioTrackId";
     private static final String PREF_KEY_SUBTITLE_TRACK_ID = "subtitleTrackId";
+    private static final String PREF_KEY_SUBTITLE_OFF_EXPLICIT = "subtitleOffExplicit";
     private static final String PREF_KEY_RESIZE_MODE = "resizeMode";
     private static final String PREF_KEY_ORIENTATION = "orientation";
     private static final String PREF_KEY_SCALE = "scale";
@@ -59,6 +62,8 @@ class Prefs {
     public Uri subtitleUri;
     public Uri scopeUri;
     public String mediaType;
+    public boolean mediaCompleted;
+    public long subtitleOffsetMs;
     public int resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT;
     public Utils.Orientation orientation = Utils.Orientation.UNSPECIFIED;
     public float scale = 1.f;
@@ -94,6 +99,12 @@ class Prefs {
         mSharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
         loadSavedPreferences();
         loadPositions();
+        loadSubtitleOffset();
+        if (isImplicitSubtitleOff(subtitleTrackId, subtitleOffsetMs,
+                mSharedPreferences.contains(PREF_KEY_SUBTITLE_OFF_EXPLICIT))) {
+            subtitleTrackId = null;
+            mSharedPreferences.edit().remove(PREF_KEY_SUBTITLE_TRACK_ID).apply();
+        }
     }
 
     private void loadSavedPreferences() {
@@ -101,6 +112,7 @@ class Prefs {
             mediaUri = Uri.parse(mSharedPreferences.getString(PREF_KEY_MEDIA_URI, null));
         if (mSharedPreferences.contains(PREF_KEY_MEDIA_TYPE))
             mediaType = mSharedPreferences.getString(PREF_KEY_MEDIA_TYPE, null);
+        mediaCompleted = mSharedPreferences.getBoolean(PREF_KEY_MEDIA_COMPLETED, false);
         brightness = mSharedPreferences.getInt(PREF_KEY_BRIGHTNESS, brightness);
         firstRun = mSharedPreferences.getBoolean(PREF_KEY_FIRST_RUN, firstRun);
         if (mSharedPreferences.contains(PREF_KEY_SUBTITLE_URI))
@@ -135,9 +147,16 @@ class Prefs {
         subtitleFontSize = Integer.parseInt(mSharedPreferences.getString(PREF_KEY_SUBTITLE_FONT_SIZE, "0"));
     }
 
+    public void updateSubtitleFontSize(int sizePercent) {
+        subtitleFontSize = sizePercent;
+        mSharedPreferences.edit().putString(PREF_KEY_SUBTITLE_FONT_SIZE, Integer.toString(sizePercent)).apply();
+    }
+
     public void updateMedia(final Context context, final Uri uri, final String type) {
         mediaUri = uri;
         mediaType = type;
+        updateCompleted(false);
+        loadSubtitleOffset();
         updateSubtitle(null);
         updateMeta(null, null, AspectRatioFrameLayout.RESIZE_MODE_FIT, 1.f, 1.f);
 
@@ -191,6 +210,40 @@ class Prefs {
             savePositions();
         } else {
             nonPersitentPosition = position;
+        }
+    }
+
+    public static boolean isUnfinishedPosition(long position, long duration, boolean completed) {
+        return !completed && position > 0 && (duration <= 0 || position < duration);
+    }
+
+    static boolean isImplicitSubtitleOff(String trackId, long offsetMs, boolean explicitMarkerPresent) {
+        return "#none".equals(trackId) && offsetMs != 0L && !explicitMarkerPresent;
+    }
+
+    public void updateCompleted(boolean completed) {
+        mediaCompleted = completed;
+        if (persistentMode) {
+            mSharedPreferences.edit().putBoolean(PREF_KEY_MEDIA_COMPLETED, completed).apply();
+        }
+    }
+
+    private void loadSubtitleOffset() {
+        subtitleOffsetMs = persistentMode && mediaUri != null
+                ? mSharedPreferences.getLong(PREF_KEY_SUBTITLE_OFFSET_PREFIX + mediaUri, 0L) : 0L;
+    }
+
+    public void updateSubtitleOffset(long offsetMs) {
+        subtitleOffsetMs = offsetMs;
+        if (persistentMode && mediaUri != null) {
+            SharedPreferences.Editor editor = mSharedPreferences.edit();
+            String key = PREF_KEY_SUBTITLE_OFFSET_PREFIX + mediaUri;
+            if (offsetMs == 0L) {
+                editor.remove(key);
+            } else {
+                editor.putLong(key, offsetMs);
+            }
+            editor.apply();
         }
     }
 
@@ -298,6 +351,7 @@ class Prefs {
             sharedPreferencesEditor.putInt(PREF_KEY_RESIZE_MODE, resizeMode);
             sharedPreferencesEditor.putFloat(PREF_KEY_SCALE, scale);
             sharedPreferencesEditor.putFloat(PREF_KEY_SPEED, speed);
+            sharedPreferencesEditor.putBoolean(PREF_KEY_SUBTITLE_OFF_EXPLICIT, "#none".equals(subtitleTrackId));
             sharedPreferencesEditor.apply();
         }
     }

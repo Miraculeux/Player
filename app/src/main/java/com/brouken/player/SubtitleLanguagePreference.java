@@ -1,5 +1,8 @@
 package com.brouken.player;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -21,6 +24,14 @@ final class SubtitleLanguagePreference {
     private static final Pattern TRADITIONAL_WORD = Pattern.compile("\\b(traditional|tc)\\b");
 
     private SubtitleLanguagePreference() {}
+
+    static String[] getPreferredLanguages(String fallback) {
+        List<String> languages = new ArrayList<>(Arrays.asList("zh-Hans", "zh-Hant", "zh", "en"));
+        if (fallback != null && !fallback.isEmpty() && !languages.contains(fallback)) {
+            languages.add(fallback);
+        }
+        return languages.toArray(new String[0]);
+    }
 
     static int getPriority(String language, String label) {
         final String normalizedLanguage = language == null ? "" : language.trim().replace('_', '-').toLowerCase(Locale.ROOT);

@@ -11,6 +11,15 @@
     <string name="request_video_directory_scope">Allow %s to access the folder containing your videos to enable previous/next video navigation and automatic loading of external subtitles.</string>
     <string name="onboarding_open_description">Tap to open a video file. Long tap to load external subtitles.</string>
     <string name="open_subtitles">Load subtitles</string>
+    <string name="subtitle_offset">Subtitle timing</string>
+    <string name="subtitle_adjustments">Subtitle adjustments</string>
+    <string name="subtitle_font_size_scope">Font size is saved for all videos.</string>
+    <string name="full_settings">All settings</string>
+    <string name="subtitle_offset_value">%1$+.2f s</string>
+    <string name="subtitle_offset_summary">Negative: earlier. Positive: later. Saved separately for this video.</string>
+    <string name="subtitle_earlier">Earlier 0.25 s</string>
+    <string name="subtitle_later">Later 0.25 s</string>
+    <string name="subtitle_offset_reset">Reset to zero</string>
     <string name="subtitle_load_failed">Unable to load the subtitle file</string>
     <string name="subtitle_directory_unavailable">Cannot locate the video folder. Please browse to the subtitle file.</string>
     <string name="chapter_previous">Previous chapter</string>

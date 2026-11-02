@@ -43,6 +43,8 @@ AC-4 audio is supported on devices providing such system decoder (e.g. Samsung G
  * Audio/subtitle track selection
  * Automatically select supported embedded subtitles in this order: Simplified Chinese, Traditional Chinese, Chinese with unspecified script, then English. Language tags and track labels are used to identify the script. Within the same preference, full subtitles are preferred over forced-only tracks. Saved subtitle selections (including Off) and external subtitles take precedence. If none match, the existing default selection behavior is retained.
  * Playback speed control
+ * A normal cold launch, including reopening from the TV launcher after exiting with Back, automatically resumes the last unfinished video at the preceding keyframe, slightly before the saved position without skipping content. For indexed media, this can reduce decoding before the first displayed frame; startup still depends on the file's index and storage speed. Subtitle language preferences are configured before preparation, and saved subtitle/audio selections are restored when tracks first become available rather than switching them after playback starts. Completed videos do not autoplay; a paused return from Home stays paused. Opening a video explicitly and returning from settings retain their existing behavior.
+ * A single subtitle-adjustment button opens a compact, undimmed panel containing both the font-size selector and subtitle timing controls. Earlier/later adjustments use exact 0.25-second steps, with reset and play/pause preview controls. Video and audio keep running without recreating the player, and subtitles remain visible below the panel. Negative values show subtitles earlier; positive values delay them. Offsets apply to parsed embedded and external subtitles and are saved separately for each video.
  * Horizontal swipe and double tap to quickly seek
  * Vertical swipe to change brightness (left) / volume (right)
  * Pinch to zoom (Android 7+)
@@ -51,9 +53,9 @@ AC-4 audio is supported on devices providing such system decoder (e.g. Samsung G
  * Auto frame rate matching on Android TV/boxes
  * Unified chapter/file navigation: previous/next jumps between chapters, switching to the previous video from the first chapter or the next video from the last chapter. Without usable chapters, these buttons switch files directly. Each file starts from the beginning. Videos are ordered by filename in the same directory without regard to case; there is no wraparound.
  * Previous/next chapter controls sit beside the main play/pause button; there is no chapter-list button. Chapter navigation uses embedded metadata exposed by Media3 (including supported MP4/MKV chapters) and always jumps to the preceding chapter rather than restarting the current one.
- * A separate scrollable toolbar opens videos and loads external subtitles. The subtitle browser starts in the current video's directory when it can be resolved (including local MediaStore and external-storage document URIs). Selecting a subtitle explicitly enables it, preserves the playback position, and retains the playing/paused state.
+ * A separate scrollable toolbar opens videos and loads external subtitles. The subtitle browser starts in the current video's directory when it can be resolved (including local MediaStore and external-storage document URIs). Selecting a subtitle explicitly enables it, preserves the playback position, and retains the playing/paused state. Converted non-UTF8 subtitles are kept in private app storage rather than disposable cache, and unavailable saved subtitle files produce an error notification.
  * Text subtitles have transparent backgrounds, including system caption backgrounds and embedded ASS boxes. Text colors, fonts, positioning and other enabled embedded styles are retained. Backgrounds baked into bitmap subtitles cannot be removed.
- * Subtitle font size can be saved globally in Settings → Subtitle, from 50% to 300% of the player's normal size. A manual selection persists across videos and app restarts, overrides embedded font sizes (including ASS), and does not follow system caption-size changes. Select Automatic to restore the previous system/embedded sizing behavior. Bitmap subtitle sizes are unchanged.
+ * Subtitle font size is available in the unified subtitle-adjustment panel, as well as Settings → Subtitle. Choose Automatic or 50%–300% of the player's normal size. A manual selection persists across videos and app restarts, overrides embedded font sizes (including ASS), and does not follow system caption-size changes. Select Automatic to restore the previous system/embedded sizing behavior. Bitmap subtitle sizes are unchanged.
  * Touch lock (long tap)
  * App shortcut for direct access to file chooser (Android 7.1+)
  * 3rd party equalizer / audio processing support (e.g. [Wavelet](https://github.com/Pittvandewitt/Wavelet))
@@ -61,7 +63,7 @@ AC-4 audio is supported on devices providing such system decoder (e.g. Samsung G
  * Pause playback when disconnecting headphones
  * No ads, tracking or excessive permissions
 
-Some advanced features can be enabled or configured in settings. To access it, long press the ⚙️ gear icon. (Alternatively, you can also enter this settings from App info screen.)
+Click the gear icon to open a menu with playback speed, audio tracks, and All settings. All settings is available even without a loaded video. No long press is needed. (Alternatively, you can also enter settings from the App info screen.)
 
  * Default audio tracks. Set specific language, prefer device language, media file defaults.
  * File access mode. Use of Storage Access Framework / MediaStore / legacy file access.
@@ -112,7 +114,7 @@ Just Player is also able to detect some subtitle files when accessing videos ove
 
 Open system [Caption preferences](https://support.google.com/accessibility/android/answer/6006554) on your device (usually in the _Accessibility_ section of _Settings_) and you will be able to fully customize the subtitle style.
 
-To quickly access the system _Caption preferences_ screen, long tap the subtitle button.
+Use the player's subtitle-adjustment panel to change font size and timing together while previewing playback. The subtitle button selects tracks only; it no longer opens system settings on a long press.
 
 <img src="https://raw.githubusercontent.com/moneytoo/Player/master/fastlane/metadata/android/en-US/images/readmeScreenshots/caption_preferences_1.png" width="140"> <img src="https://raw.githubusercontent.com/moneytoo/Player/master/fastlane/metadata/android/en-US/images/readmeScreenshots/caption_preferences_2.png" width="140">
 
@@ -124,7 +126,7 @@ Just Player focuses on playing videos so audio only playback isn't officialy sup
 
 ### How to view detailed video information (like resolution, bitrate etc.)?
 
-Install app like [MediaInfo](https://play.google.com/store/apps/details?id=net.mediaarea.mediainfo) (or APK from [MediaArea.net](https://mediaarea.net/en/MediaInfo/Download/Android)). Then, to quickly open MediaInfo from Just Player, long press the video name/title.
+Open the video in an app such as [MediaInfo](https://play.google.com/store/apps/details?id=net.mediaarea.mediainfo) (or APK from [MediaArea.net](https://mediaarea.net/en/MediaInfo/Download/Android)) using your file manager. The player's title no longer has a long-press sharing action.
 
 ### I prefer using media library instead of a file chooser...
 

@@ -8,6 +8,15 @@
     <string name="onboarding_open_title">選擇要播放的影片</string>
     <string name="onboarding_open_description">輕觸即可開啟影片檔案，按住即可載入外掛字幕。</string>
     <string name="open_subtitles">載入字幕</string>
+    <string name="subtitle_offset">字幕時間偏移</string>
+    <string name="subtitle_adjustments">字幕調整</string>
+    <string name="subtitle_font_size_scope">字型大小設定套用至所有影片。</string>
+    <string name="full_settings">完整設定</string>
+    <string name="subtitle_offset_value">%1$+.2f 秒</string>
+    <string name="subtitle_offset_summary">負數為提前，正數為延後。依目前影片個別儲存。</string>
+    <string name="subtitle_earlier">提前 0.25 秒</string>
+    <string name="subtitle_later">延後 0.25 秒</string>
+    <string name="subtitle_offset_reset">歸零</string>
     <string name="subtitle_load_failed">無法載入字幕檔案</string>
     <string name="subtitle_directory_unavailable">無法定位影片所在目錄，請手動選擇字幕檔案。</string>
     <string name="chapter_previous">上一章</string>

@@ -69,6 +69,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 class Utils {
 
@@ -746,7 +747,12 @@ class Utils {
                 if (filename == null || filename.isEmpty()) {
                     throw new IOException("Subtitle filename is unavailable: " + subtitleUri);
                 }
-                final File file = new File(context.getCacheDir(), new File(filename).getName());
+                File directory = new File(context.getFilesDir(), "subtitles");
+                if (!directory.isDirectory() && !directory.mkdirs()) {
+                    throw new IOException("Unable to create subtitle storage: " + directory);
+                }
+                String prefix = UUID.nameUUIDFromBytes(subtitleUri.toString().getBytes(StandardCharsets.UTF_8)).toString();
+                final File file = new File(directory, prefix + "-" + new File(filename).getName());
                 try (BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(file))) {
                     char[] buffer = new char[512];
                     int num;

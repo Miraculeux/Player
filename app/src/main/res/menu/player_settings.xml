@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/playback_speed"
+        android:title="@string/exo_controls_playback_speed" />
+    <item
+        android:id="@+id/audio_tracks"
+        android:title="@string/exo_track_selection_title_audio" />
+    <item
+        android:id="@+id/full_settings"
+        android:title="@string/full_settings" />
+</menu>
