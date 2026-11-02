@@ -5,12 +5,10 @@
     <string name="open_subtitles">加载字幕</string>
     <string name="subtitle_load_failed">无法加载字幕文件</string>
     <string name="subtitle_directory_unavailable">无法定位视频所在目录，请手动选择字幕文件。</string>
-    <string name="chapters">章节</string>
     <string name="chapter_previous">上一章</string>
     <string name="chapter_next">下一章</string>
     <string name="video_previous">上一个视频</string>
     <string name="video_next">下一个视频</string>
-    <string name="chapter_number">第 %1$d 章</string>
     <string name="onboarding_video_open_description">选择以打开视频文件。请使用独立的加载字幕按钮加载外挂字幕。</string>
     <string name="request_video_directory_scope">请允许 %s 访问视频所在文件夹，以切换上一个／下一个视频并自动加载外挂字幕。</string>
     <string name="onboarding_open_description">轻按打开一个视频文件。长按加载外部视频。</string>
@@ -65,6 +63,9 @@
     <string name="pref_subtitle_style_embedded_off">不应用嵌入字幕样式</string>
     <string name="pref_subtitle_style_bold_off">使用默认的常规字体</string>
     <string name="pref_subtitle_header">字幕</string>
+    <string name="pref_subtitle_font_size">字幕字号</string>
+    <string name="pref_subtitle_font_size_auto">自动（系统 / 字幕文件）</string>
+    <string name="pref_subtitle_font_size_summary">100% 为播放器标准字号。手动选择后对所有视频保存生效，不受系统或字幕文件字号影响，保留其他字幕样式。</string>
     <string name="pref_subtitle_style_bold">粗体式样</string>
     <string name="pref_subtitle_style_bold_on">使用粗体字体</string>
 </resources>

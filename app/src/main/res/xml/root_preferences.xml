@@ -48,6 +48,18 @@
 
     <PreferenceCategory app:title="@string/pref_subtitle_header">
 
+        <ListPreference
+            app:key="subtitleFontSize"
+            app:defaultValue="0"
+            app:entries="@array/subtitle_font_size_entries"
+            app:entryValues="@array/subtitle_font_size_values"
+            app:title="@string/pref_subtitle_font_size"
+            app:useSimpleSummaryProvider="true" />
+
+        <Preference
+            app:selectable="false"
+            app:summary="@string/pref_subtitle_font_size_summary" />
+
         <SwitchPreferenceCompat
             app:key="subtitleStyleEmbedded"
             app:defaultValue="true"

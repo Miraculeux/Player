@@ -10,12 +10,10 @@
     <string name="open_subtitles">載入字幕</string>
     <string name="subtitle_load_failed">無法載入字幕檔案</string>
     <string name="subtitle_directory_unavailable">無法定位影片所在目錄，請手動選擇字幕檔案。</string>
-    <string name="chapters">章節</string>
     <string name="chapter_previous">上一章</string>
     <string name="chapter_next">下一章</string>
     <string name="video_previous">上一個影片</string>
     <string name="video_next">下一個影片</string>
-    <string name="chapter_number">第 %1$d 章</string>
     <string name="onboarding_video_open_description">選擇以開啟影片檔案。請使用獨立的載入字幕按鈕載入外掛字幕。</string>
     <string name="request_video_directory_scope">請允許 %s 存取影片所在資料夾，以切換上一個／下一個影片並自動載入外掛字幕。</string>
     <string name="error_details">資訊</string>
@@ -65,6 +63,9 @@
     <string name="pref_subtitle_style_embedded">嵌入樣式</string>
     <string name="pref_subtitle_style_embedded_on">套用內嵌字幕樣式</string>
     <string name="pref_subtitle_header">字幕</string>
+    <string name="pref_subtitle_font_size">字幕字型大小</string>
+    <string name="pref_subtitle_font_size_auto">自動（系統 / 字幕檔案）</string>
+    <string name="pref_subtitle_font_size_summary">100% 為播放器標準字型大小。手動選擇後對所有影片儲存生效，不受系統或字幕檔案字型大小影響，保留其他字幕樣式。</string>
     <string name="pref_subtitle_style_embedded_off">不要套用內嵌字幕樣式</string>
     <string name="pref_subtitle_style_bold">粗體樣式</string>
 </resources>

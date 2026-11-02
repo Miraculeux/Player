@@ -72,6 +72,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -167,7 +168,6 @@ public class PlayerActivity extends Activity {
     private CustomDefaultTimeBar timeBar;
     private List<VideoChapter> chapters = Collections.emptyList();
     private List<VideoChapter> metadataChapters = Collections.emptyList();
-    private AlertDialog chapterDialog;
 
     private boolean restoreOrientationLock;
     private boolean restorePlayState;
@@ -587,7 +587,6 @@ public class PlayerActivity extends Activity {
         exoBasicControls.addView(horizontalScrollView);
         controlView.setProgressUpdateListener((position, bufferedPosition) -> updateChapterButtons());
         findViewById(R.id.chapter_previous).setOnClickListener(view -> navigateChapterOrFile(false));
-        findViewById(R.id.chapters).setOnClickListener(view -> showChapters());
         findViewById(R.id.chapter_next).setOnClickListener(view -> navigateChapterOrFile(true));
         updateButtons(false);
 
@@ -680,6 +679,7 @@ public class PlayerActivity extends Activity {
     public void onStart() {
         super.onStart();
         alive = true;
+        mPrefs.loadUserPreferences();
         if (!(isTvBox && Build.VERSION.SDK_INT >= 31)) {
             updateSubtitleStyle(this);
         }
@@ -1390,6 +1390,15 @@ public class PlayerActivity extends Activity {
 
     private class PlayerListener implements Player.Listener {
         @Override
+        public void onCues(CueGroup cueGroup) {
+            // This listener runs after PlayerView has updated the subtitle view.
+            SubtitleView subtitleView = playerView.getSubtitleView();
+            if (subtitleView != null) {
+                subtitleView.setCues(SubtitleUtils.withoutBackgrounds(cueGroup.cues));
+            }
+        }
+
+        @Override
         public void onEvents(Player updatedPlayer, Player.Events events) {
             if (updatedPlayer != player) {
                 return;
@@ -1844,7 +1853,8 @@ public class PlayerActivity extends Activity {
     void setSubtitleTextSizePiP() {
         final SubtitleView subtitleView = playerView.getSubtitleView();
         if (subtitleView != null)
-            subtitleView.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 2);
+            subtitleView.setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION
+                    * (mPrefs.subtitleFontSize > 0 ? subtitlesScale : 2f));
     }
 
     @TargetApi(26)
@@ -1946,23 +1956,29 @@ public class PlayerActivity extends Activity {
         final CaptioningManager captioningManager = (CaptioningManager) getSystemService(Context.CAPTIONING_SERVICE);
         final SubtitleView subtitleView = playerView.getSubtitleView();
         final boolean isTablet = Utils.isTablet(context);
-        subtitlesScale = SubtitleUtils.normalizeFontScale(captioningManager.getFontScale(), isTvBox || isTablet);
+        subtitlesScale = SubtitleUtils.getFontScale(captioningManager.getFontScale(), isTvBox || isTablet,
+                mPrefs.subtitleFontSize);
         if (subtitleView != null) {
             final CaptioningManager.CaptionStyle userStyle = captioningManager.getUserStyle();
             final CaptionStyleCompat userStyleCompat = CaptionStyleCompat.createFromCaptionStyle(userStyle);
             final CaptionStyleCompat captionStyle = new CaptionStyleCompat(
                     userStyle.hasForegroundColor() ? userStyleCompat.foregroundColor : Color.WHITE,
-                    userStyle.hasBackgroundColor() ? userStyleCompat.backgroundColor : Color.TRANSPARENT,
-                    userStyle.hasWindowColor() ? userStyleCompat.windowColor : Color.TRANSPARENT,
+                    Color.TRANSPARENT,
+                    Color.TRANSPARENT,
                     userStyle.hasEdgeType() ? userStyleCompat.edgeType : CaptionStyleCompat.EDGE_TYPE_OUTLINE,
                     userStyle.hasEdgeColor() ? userStyleCompat.edgeColor : Color.BLACK,
                     Typeface.create(userStyleCompat.typeface != null ? userStyleCompat.typeface : Typeface.DEFAULT,
                             mPrefs.subtitleStyleBold ? Typeface.BOLD : Typeface.NORMAL));
             subtitleView.setStyle(captionStyle);
             subtitleView.setApplyEmbeddedStyles(mPrefs.subtitleStyleEmbedded);
+            subtitleView.setApplyEmbeddedFontSizes(mPrefs.subtitleFontSize == 0);
             subtitleView.setBottomPaddingFraction(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION * 2f / 3f);
         }
-        setSubtitleTextSize();
+        if (isInPip()) {
+            setSubtitleTextSizePiP();
+        } else {
+            setSubtitleTextSize();
+        }
     }
 
     void searchSubtitles() {
@@ -2252,22 +2268,13 @@ public class PlayerActivity extends Activity {
                 found.addAll(VideoChapter.fromMetadata(group.getTrackFormat(i).metadata));
             }
         }
-        List<VideoChapter> updated = VideoChapter.normalize(found, player.getDuration());
-        if (!chapters.equals(updated)) {
-            if (chapterDialog != null) {
-                chapterDialog.dismiss();
-            }
-            chapters = updated;
-        }
+        chapters = VideoChapter.normalize(found, player.getDuration());
         updateChapterButtons();
     }
 
     private void clearChapters() {
         chapters = Collections.emptyList();
         metadataChapters = Collections.emptyList();
-        if (chapterDialog != null) {
-            chapterDialog.dismiss();
-        }
         updateChapterButtons();
     }
 
@@ -2279,7 +2286,6 @@ public class PlayerActivity extends Activity {
         long position = player == null ? 0 : player.getCurrentPosition();
         int previousChapter = VideoChapter.navigationIndex(chapters, position, false, seekable);
         int nextChapter = VideoChapter.navigationIndex(chapters, position, true, seekable);
-        Utils.setButtonEnabled(this, findViewById(R.id.chapters), seekable && !chapters.isEmpty());
         Utils.setButtonEnabled(this, findViewById(R.id.chapter_previous),
                 previousChapter >= 0 || (fileNavigation && (previousUri != null || canRequestScope)));
         Utils.setButtonEnabled(this, findViewById(R.id.chapter_next),
@@ -2301,33 +2307,6 @@ public class PlayerActivity extends Activity {
         } else if (!apiAccess) {
             skipToAdjacent(next);
         }
-    }
-
-    private void showChapters() {
-        if (player == null || !player.isCurrentMediaItemSeekable() || chapters.isEmpty()) {
-            return;
-        }
-        String[] labels = new String[chapters.size()];
-        for (int i = 0; i < chapters.size(); i++) {
-            VideoChapter chapter = chapters.get(i);
-            String title = chapter.title == null ? getString(R.string.chapter_number, i + 1) : chapter.title;
-            labels[i] = Utils.formatMilis(chapter.startTimeMs) + "  " + title;
-        }
-        playerView.setControllerShowTimeoutMs(-1);
-        chapterDialog = new AlertDialog.Builder(this, R.style.MediaStoreChooserDialog)
-                .setTitle(R.string.chapters)
-                .setSingleChoiceItems(labels, VideoChapter.currentIndex(chapters, player.getCurrentPosition()),
-                        (dialog, index) -> {
-                            seekToChapter(index);
-                            dialog.dismiss();
-                        })
-                .setNegativeButton(android.R.string.cancel, (dialog, which) -> dialog.dismiss())
-                .create();
-        chapterDialog.setOnDismissListener(dialog -> {
-            chapterDialog = null;
-            resetHideCallbacks();
-        });
-        chapterDialog.show();
     }
 
     private void seekToChapter(int index) {

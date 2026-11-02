@@ -1,5 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+  <string-array name="subtitle_font_size_entries">
+    <item>@string/pref_subtitle_font_size_auto</item>
+    <item>50%</item>
+    <item>75%</item>
+    <item>100%</item>
+    <item>125%</item>
+    <item>150%</item>
+    <item>175%</item>
+    <item>200%</item>
+    <item>250%</item>
+    <item>300%</item>
+  </string-array>
+
+  <string-array name="subtitle_font_size_values">
+    <item>0</item>
+    <item>50</item>
+    <item>75</item>
+    <item>100</item>
+    <item>125</item>
+    <item>150</item>
+    <item>175</item>
+    <item>200</item>
+    <item>250</item>
+    <item>300</item>
+  </string-array>
+
   <string-array name="file_access_entries">
     <item>@string/pref_file_access_auto</item>
     <item>Storage Access Framework</item>

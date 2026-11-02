@@ -122,6 +122,13 @@
       android:gravity="center"
       android:padding="@dimen/exo_styled_controls_padding">
 
+    <ImageButton android:id="@+id/chapter_previous"
+        style="@style/ExoStyledControls.Button.Center.Secondary"
+        android:contentDescription="@string/chapter_previous"
+        android:enabled="false"
+        android:visibility="visible"
+        android:src="@drawable/exo_styled_controls_previous"/>
+
     <ImageButton android:id="@+id/exo_prev"
         style="@style/ExoStyledControls.Button.Center.Previous"/>
 
@@ -140,6 +147,13 @@
 
     <ImageButton android:id="@+id/exo_next"
         style="@style/ExoStyledControls.Button.Center.Next"/>
+
+    <ImageButton android:id="@+id/chapter_next"
+        style="@style/ExoStyledControls.Button.Center.Secondary"
+        android:contentDescription="@string/chapter_next"
+        android:enabled="false"
+        android:visibility="visible"
+        android:src="@drawable/exo_styled_controls_next"/>
 
   </LinearLayout>
 

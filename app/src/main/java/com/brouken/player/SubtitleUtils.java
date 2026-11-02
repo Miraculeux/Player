@@ -3,6 +3,9 @@ package com.brouken.player;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.BackgroundColorSpan;
 
 import androidx.documentfile.provider.DocumentFile;
 import androidx.media3.common.C;
@@ -11,6 +14,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.text.Cue;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -20,6 +24,29 @@ import java.util.List;
 import java.util.Locale;
 
 class SubtitleUtils {
+
+    static List<Cue> withoutBackgrounds(List<Cue> cues) {
+        List<Cue> transparent = new ArrayList<>(cues.size());
+        for (Cue cue : cues) {
+            Cue.Builder builder = cue.windowColorSet ? cue.buildUpon().clearWindowColor() : null;
+            if (cue.text instanceof Spanned) {
+                Spanned text = (Spanned) cue.text;
+                BackgroundColorSpan[] backgrounds = text.getSpans(0, text.length(), BackgroundColorSpan.class);
+                if (backgrounds.length > 0) {
+                    SpannableString cleaned = new SpannableString(text);
+                    for (BackgroundColorSpan background : backgrounds) {
+                        cleaned.removeSpan(background);
+                    }
+                    if (builder == null) {
+                        builder = cue.buildUpon();
+                    }
+                    builder.setText(cleaned);
+                }
+            }
+            transparent.add(builder == null ? cue : builder.build());
+        }
+        return transparent;
+    }
 
     static boolean matchesExternalSubtitleId(String trackId, String subtitleId) {
         // Merged media sources prefix format IDs with the source index.
@@ -315,6 +342,14 @@ class SubtitleUtils {
             subtitleConfigurationBuilder.setSelectionFlags(C.SELECTION_FLAG_DEFAULT);
         }
         return subtitleConfigurationBuilder.build();
+    }
+
+    static float getFontScale(float systemFontScale, boolean small, int sizePercent) {
+        if (sizePercent < 0) {
+            throw new IllegalArgumentException("Subtitle font size must be automatic (0) or a positive percentage");
+        }
+        return sizePercent == 0 ? normalizeFontScale(systemFontScale, small)
+                : normalizeFontScale(1f, small) * sizePercent / 100f;
     }
 
     public static float normalizeFontScale(float fontScale, boolean small) {
