@@ -30,6 +30,8 @@ It properly syncs audio with video track when using Bluetooth earphones/speaker.
  * **Streaming**: DASH, HLS, SmoothStreaming, RTSP
  * **Subtitles**: SRT, SSA/ASS ([limited styling](https://github.com/google/ExoPlayer/issues/8435)), TTML, VTT, DVB
 
+SSA/ASS subtitles with zero, negative, or non-finite script dimensions (`PlayResX`/`PlayResY`) use automatic sizing and alignment-based placement for the unspecified dimensions instead of producing invisible text. Valid script dimensions and supported styles remain unchanged; this applies to external files and embedded SSA/ASS headers.
+
 HDR (HDR10+ and Dolby Vision) video playback on compatible/supported hardware.
 
 AC-4 audio is supported on devices providing such system decoder (e.g. Samsung Galaxy A, S and Z series running Android 11 or later).

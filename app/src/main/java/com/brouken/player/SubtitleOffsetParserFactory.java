@@ -2,6 +2,7 @@ package com.brouken.player;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
 
@@ -43,13 +44,24 @@ final class SubtitleOffsetParserFactory implements SubtitleParser.Factory {
 
     @Override
     public SubtitleParser create(Format format) {
-        SubtitleParser parser = delegate.create(format);
+        boolean ssa = format != null && MimeTypes.TEXT_SSA.equals(format.sampleMimeType);
+        Format parserFormat = format;
+        if (ssa && !format.initializationData.isEmpty()) {
+            List<byte[]> initializationData = new ArrayList<>(format.initializationData.size());
+            for (byte[] data : format.initializationData) {
+                initializationData.add(SsaSubtitleSanitizer.sanitize(data, 0, data.length));
+            }
+            parserFormat = format.buildUpon().setInitializationData(initializationData).build();
+        }
+        SubtitleParser parser = delegate.create(parserFormat);
         return new SubtitleParser() {
             @Override
             public void parse(byte[] data, int offset, int length, OutputOptions options,
                     Consumer<CuesWithTiming> output) {
                 List<CuesWithTiming> parsed = new ArrayList<>();
-                parser.parse(data, offset, length, OutputOptions.allCues(), parsed::add);
+                byte[] sanitized = ssa ? SsaSubtitleSanitizer.sanitize(data, offset, length) : data;
+                parser.parse(sanitized, sanitized == data ? offset : 0,
+                        sanitized == data ? length : sanitized.length, OutputOptions.allCues(), parsed::add);
                 List<CuesWithTiming> shifted = new ArrayList<>(parsed.size());
                 for (CuesWithTiming cues : parsed) {
                     shifted.add(offsetUs == 0L ? cues : new CuesWithTiming(cues.cues,
