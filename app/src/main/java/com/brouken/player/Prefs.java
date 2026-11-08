@@ -54,6 +54,7 @@ class Prefs {
 
     public static final String TRACK_DEFAULT = "default";
     public static final String TRACK_DEVICE = "device";
+    public static final String TRACK_ENGLISH_CHINESE = "english_chinese";
 
     final Context mContext;
     final SharedPreferences mSharedPreferences;
@@ -84,7 +85,7 @@ class Prefs {
     public String fileAccess = "auto";
     public int decoderPriority = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON;
     public boolean mapDV7ToHevc = false;
-    public String languageAudio = TRACK_DEVICE;
+    public String languageAudio = TRACK_ENGLISH_CHINESE;
     public boolean subtitleStyleEmbedded = true;
     public boolean subtitleStyleBold = false;
     public int subtitleFontSize = 0;
@@ -145,6 +146,19 @@ class Prefs {
         subtitleStyleEmbedded = mSharedPreferences.getBoolean(PREF_KEY_SUBTITLE_STYLE_EMBEDDED, subtitleStyleEmbedded);
         subtitleStyleBold = mSharedPreferences.getBoolean(PREF_KEY_SUBTITLE_STYLE_BOLD, subtitleStyleBold);
         subtitleFontSize = Integer.parseInt(mSharedPreferences.getString(PREF_KEY_SUBTITLE_FONT_SIZE, "0"));
+    }
+
+    static String[] getPreferredAudioLanguages(String preference, String[] deviceLanguages) {
+        switch (preference) {
+            case TRACK_ENGLISH_CHINESE:
+                return new String[]{"en", "zh"};
+            case TRACK_DEVICE:
+                return deviceLanguages;
+            case TRACK_DEFAULT:
+                return new String[0];
+            default:
+                return new String[]{preference};
+        }
     }
 
     public void updateSubtitleFontSize(int sizePercent) {

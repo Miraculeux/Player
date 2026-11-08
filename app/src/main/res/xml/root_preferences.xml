@@ -13,7 +13,7 @@
 
         <ListPreference
             app:key="languageAudio"
-            android:defaultValue="device"
+            android:defaultValue="english_chinese"
             app:title="@string/pref_language_audio"
             app:useSimpleSummaryProvider="true" />
 

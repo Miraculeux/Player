@@ -112,6 +112,7 @@ public class SettingsActivity extends AppCompatActivity {
             ListPreference listPreferenceLanguageAudio = findPreference("languageAudio");
             if (listPreferenceLanguageAudio != null) {
                 LinkedHashMap<String, String> entries = new LinkedHashMap<>();
+                entries.put(Prefs.TRACK_ENGLISH_CHINESE, getString(R.string.pref_language_track_english_chinese));
                 entries.put(Prefs.TRACK_DEFAULT, getString(R.string.pref_language_track_default));
                 entries.put(Prefs.TRACK_DEVICE, getString(R.string.pref_language_track_device));
                 entries.putAll(getLanguages());

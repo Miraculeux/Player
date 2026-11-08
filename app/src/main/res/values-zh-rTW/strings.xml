@@ -65,6 +65,7 @@
     <string name="pref_decoder_priority_prefer_app">應用程式解碼器優先</string>
     <string name="pref_decoder_priority_only_device">僅使用裝置解碼器</string>
     <string name="pref_language_audio">預設音訊軌道</string>
+    <string name="pref_language_track_english_chinese">英語優先，其次中文</string>
     <string name="pref_language_track_device">裝置語言</string>
     <string name="pref_language_track_default">媒體檔案預設</string>
     <string name="pref_subtitle_style_bold_on">預設使用粗體字型</string>
